@@ -2,11 +2,17 @@
   "name": "webstore",
   "private": true,
   "scripts": {
+    "dev": "concurrently -n server,web -c cyan,magenta \"pnpm dev:server\" \"pnpm dev:web\"",
     "dev:server": "pnpm --filter @webstore/server dev",
     "dev:web": "pnpm --filter @webstore/web dev",
     "build:shared": "pnpm --filter @webstore/shared build",
     "build:server": "pnpm --filter @webstore/server build",
     "build:web": "pnpm --filter @webstore/web build",
-    "build:all": "pnpm build:shared && pnpm build:server  && pnpm build:web"
+    "build:all": "pnpm build:shared && pnpm build:server  && pnpm build:web",
+    "cli:prod": "pnpm --filter @webstore/server cli",
+    "cli": "pnpm --filter @webstore/server cli:dev"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }
