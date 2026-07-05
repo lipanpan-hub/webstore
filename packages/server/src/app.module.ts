@@ -6,6 +6,7 @@ import { CategoryModule } from './category/category.module.js'
 import { ProductModule } from './product/product.module.js'
 import { CardModule } from './card/card.module.js'
 import { CatalogModule } from './catalog/catalog.module.js'
+import { PaymentModule } from './payment/payment.module.js'
 
 const MONGO_URI = process.env.MONGO_URI ?? 'mongodb://127.0.0.1:27017/webstore'
 
@@ -16,6 +17,7 @@ const MONGO_URI = process.env.MONGO_URI ?? 'mongodb://127.0.0.1:27017/webstore'
     ProductModule,
     CardModule,
     CatalogModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

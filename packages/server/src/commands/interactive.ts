@@ -25,8 +25,8 @@ export async function askText(message: string, initial?: string): Promise<string
   return (value as string).trim()
 }
 
-export async function askOptionalText(message: string): Promise<string> {
-  const { value } = await prompts({ type: 'text', name: 'value', message }, { onCancel })
+export async function askOptionalText(message: string, initial?: string): Promise<string> {
+  const { value } = await prompts({ type: 'text', name: 'value', message, initial }, { onCancel })
   return ((value as string) ?? '').trim()
 }
 
@@ -41,6 +41,16 @@ export async function askNumber(message: string): Promise<number> {
     { onCancel },
   )
   return value as number
+}
+//#endregion
+
+//#region 确认
+export async function askConfirm(message: string): Promise<boolean> {
+  const { value } = await prompts(
+    { type: 'confirm', name: 'value', message, initial: false },
+    { onCancel },
+  )
+  return value as boolean
 }
 //#endregion
 

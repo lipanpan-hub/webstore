@@ -15,6 +15,9 @@ export class ProductEntity {
   @Prop({ default: '' })
   description!: string
 
+  @Prop({ default: '' })
+  detail!: string
+
   @Prop({ required: true })
   price!: number
 

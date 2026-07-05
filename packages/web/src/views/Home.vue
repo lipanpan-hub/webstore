@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import type { ApiResponse, CategoryWithProducts } from '@webstore/shared'
+import { API_BASE } from '@/config'
 
-const API_BASE = 'http://localhost:3000'
+const router = useRouter()
+
+function goDetail(id: string) {
+  router.push(`/product/${id}`)
+}
 
 const categories = ref<CategoryWithProducts[]>([])
 const loading = ref(true)
@@ -34,7 +40,12 @@ onMounted(loadCatalog)
     <section v-for="category in categories" :key="category.id" class="category">
       <h2 class="category-title">{{ category.name }}</h2>
       <div class="product-grid">
-        <article v-for="product in category.products" :key="product.id" class="product-card">
+        <article
+          v-for="product in category.products"
+          :key="product.id"
+          class="product-card"
+          @click="goDetail(product.id)"
+        >
           <h3 class="product-name">{{ product.name }}</h3>
           <p class="product-desc">{{ product.description || '暂无描述' }}</p>
           <div class="product-footer">
@@ -79,9 +90,10 @@ onMounted(loadCatalog)
 }
 
 .product-card {
-  border: 1px solid #eee;
+  border: 1px solid #35a01fff;
   border-radius: 8px;
   padding: 16px;
+  cursor: pointer;
   transition: box-shadow 0.2s;
 }
 

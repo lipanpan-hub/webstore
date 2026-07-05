@@ -17,12 +17,14 @@ export class ProductService {
     name: string
     price: number
     description?: string
+    detail?: string
   }): Promise<Product> {
     const doc = await this.productModel.create({
       categoryId: input.categoryId,
       name: input.name,
       price: input.price,
       description: input.description ?? '',
+      detail: input.detail ?? '',
       status: 'off',
     })
     return this.toView(doc)
@@ -32,6 +34,20 @@ export class ProductService {
     const doc = await this.productModel.findByIdAndUpdate(id, { status }, { returnDocument: 'after' })
     if (!doc) throw new NotFoundException(`商品不存在: ${id}`)
     return this.toView(doc)
+  }
+
+  async setDetail(id: string, detail: string): Promise<Product> {
+    const doc = await this.productModel.findByIdAndUpdate(id, { detail }, { returnDocument: 'after' })
+    if (!doc) throw new NotFoundException(`商品不存在: ${id}`)
+    return this.toView(doc)
+  }
+
+  async findByIdWithStock(id: string): Promise<ProductView> {
+    // 单个商品详情：附带库存数量，供前端详情页使用
+    const doc = await this.productModel.findById(id).lean()
+    if (!doc) throw new NotFoundException(`商品不存在: ${id}`)
+    const stock = await this.cardService.countStock(String(doc._id))
+    return { ...this.toViewFromLean(doc), stock }
   }
 
   async findAll(): Promise<Product[]> {
@@ -57,6 +73,7 @@ export class ProductService {
       categoryId: doc.categoryId,
       name: doc.name,
       description: doc.description,
+      detail: doc.detail,
       price: doc.price,
       status: doc.status,
     }
@@ -67,6 +84,7 @@ export class ProductService {
     categoryId: string
     name: string
     description: string
+    detail: string
     price: number
     status: ProductStatus
   }): Product {
@@ -75,6 +93,7 @@ export class ProductService {
       categoryId: d.categoryId,
       name: d.name,
       description: d.description,
+      detail: d.detail,
       price: d.price,
       status: d.status,
     }

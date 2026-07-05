@@ -16,6 +16,11 @@ interface ShelfOptions {
   status?: ProductStatus
 }
 
+interface DetailOptions {
+  id?: string
+  detail?: string
+}
+
 @SubCommand({ name: 'add', description: '添加商品（默认下架，缺参时交互询问）' })
 class ProductAddCommand extends CommandRunner {
   constructor(
@@ -109,6 +114,43 @@ class ProductShelfCommand extends CommandRunner {
   }
 }
 
+@SubCommand({ name: 'detail', description: '编辑商品详情内容' })
+class ProductDetailCommand extends CommandRunner {
+  constructor(private readonly productService: ProductService) {
+    super()
+  }
+
+  async run(_inputs: string[], options: DetailOptions): Promise<void> {
+    // 未通过命令行传入的参数，逐项交互式补全
+    const id = options.id ?? (await this.pickProduct())
+    const detail = options.detail ?? (await askOptionalText('商品详情内容（留空则清空）'))
+
+    const product = await this.productService.setDetail(id, detail)
+    console.log(`商品 ${product.name} 详情已更新（${product.detail.length} 字）`)
+  }
+
+  private async pickProduct(): Promise<string> {
+    const products = await this.productService.findAll()
+    if (products.length === 0) throw new Error('暂无商品，请先执行 product add')
+    const picked = await pickFuzzy(
+      '选择商品',
+      products,
+      (p) => `${p.name}  ￥${p.price}  [${p.status}]  (${p.id})`,
+    )
+    return picked.id
+  }
+
+  @Option({ flags: '-i, --id <id>', description: '商品 ID' })
+  parseId(v: string): string {
+    return v
+  }
+
+  @Option({ flags: '-d, --detail <detail>', description: '商品详情内容' })
+  parseDetail(v: string): string {
+    return v
+  }
+}
+
 @SubCommand({ name: 'list', description: '列出所有商品' })
 class ProductListCommand extends CommandRunner {
   constructor(private readonly productService: ProductService) {
@@ -126,11 +168,11 @@ class ProductListCommand extends CommandRunner {
 @Command({
   name: 'product',
   description: '商品管理',
-  subCommands: [ProductAddCommand, ProductShelfCommand, ProductListCommand],
+  subCommands: [ProductAddCommand, ProductShelfCommand, ProductDetailCommand, ProductListCommand],
 })
 export class ProductCommand extends CommandRunner {
   async run(): Promise<void> {
-    console.log('用法: product <add|shelf|list>')
+    console.log('用法: product <add|shelf|detail|list>')
   }
 }
 
@@ -138,5 +180,6 @@ export const productCommandProviders = [
   ProductCommand,
   ProductAddCommand,
   ProductShelfCommand,
+  ProductDetailCommand,
   ProductListCommand,
 ]

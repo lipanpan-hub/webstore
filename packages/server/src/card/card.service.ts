@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import type { Card } from '@webstore/shared'
+import type { Card, CardStatus } from '@webstore/shared'
 import { CardEntity, CardDocument } from './card.schema.js'
 
 @Injectable()
@@ -41,5 +41,18 @@ export class CardService {
       secret: d.secret,
       status: d.status,
     }))
+  }
+
+  async deleteCard(id: string): Promise<boolean> {
+    // 按 ID 删除单条卡密，返回是否命中
+    const { deletedCount } = await this.cardModel.deleteOne({ _id: id })
+    return deletedCount > 0
+  }
+
+  async deleteByProduct(productId: string, status?: CardStatus): Promise<number> {
+    // 批量删除某商品卡密，status 缺省时删除全部
+    const filter = status ? { productId, status } : { productId }
+    const { deletedCount } = await this.cardModel.deleteMany(filter)
+    return deletedCount
   }
 }
