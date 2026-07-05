@@ -46,6 +46,13 @@ export class PaymentService {
     return docs.map((d) => this.toDetailFromLean(d))
   }
 
+  async findDetailById(id: string): Promise<PaymentMethodDetail> {
+    // 供下单流程按 ID 获取含服务商配置的支付方式详情
+    const doc = await this.paymentModel.findById(id).lean()
+    if (!doc) throw new NotFoundException(`支付方式不存在: ${id}`)
+    return this.toDetailFromLean(doc)
+  }
+
   async findEnabled(): Promise<PaymentMethod[]> {
     // 仅返回启用中的支付方式，供前端购买表单选择（不含敏感配置）
     const docs = await this.paymentModel.find({ enabled: true }).sort({ sort: 1 }).lean()

@@ -1,44 +1,39 @@
-import prompts from 'prompts'
+import { input, number, confirm, select, search } from '@inquirer/prompts'
 import Fuse from 'fuse.js'
 
-// 外观模式：封装 prompts + fuse.js 的交互细节，命令层只依赖下方简洁接口
+// 外观模式：封装 @inquirer/prompts + fuse.js 的交互细节，命令层只依赖下方简洁接口
 
 //#region 内部工具
-function onCancel(): never {
-  console.log('已取消操作')
-  process.exit(1)
+async function run<T>(task: Promise<T>): Promise<T> {
+  try {
+    return await task
+  } catch (err) {
+    // inquirer 在 Ctrl+C 取消时抛出 ExitPromptError
+    if (err instanceof Error && err.name === 'ExitPromptError') {
+      console.log('已取消操作')
+      process.exit(1)
+    }
+    throw err
+  }
 }
 //#endregion
 
 //#region 文本 / 数字输入
 export async function askText(message: string, initial?: string): Promise<string> {
-  const { value } = await prompts(
-    {
-      type: 'text',
-      name: 'value',
-      message,
-      initial,
-      validate: (v: string) => (v && v.trim() ? true : '不能为空'),
-    },
-    { onCancel },
+  const value = await run(
+    input({ message, default: initial, validate: (v) => (v.trim() ? true : '不能为空') }),
   )
-  return (value as string).trim()
+  return value.trim()
 }
 
 export async function askOptionalText(message: string, initial?: string): Promise<string> {
-  const { value } = await prompts({ type: 'text', name: 'value', message, initial }, { onCancel })
-  return ((value as string) ?? '').trim()
+  const value = await run(input({ message, default: initial }))
+  return value.trim()
 }
 
 export async function askNumber(message: string): Promise<number> {
-  const { value } = await prompts(
-    {
-      type: 'number',
-      name: 'value',
-      message,
-      validate: (v: number) => (v >= 0 ? true : '必须为非负数'),
-    },
-    { onCancel },
+  const value = await run(
+    number({ message, validate: (v) => (v !== undefined && v >= 0 ? true : '必须为非负数') }),
   )
   return value as number
 }
@@ -46,11 +41,7 @@ export async function askNumber(message: string): Promise<number> {
 
 //#region 确认
 export async function askConfirm(message: string): Promise<boolean> {
-  const { value } = await prompts(
-    { type: 'confirm', name: 'value', message, initial: false },
-    { onCancel },
-  )
-  return value as boolean
+  return run(confirm({ message, default: false }))
 }
 //#endregion
 
@@ -59,11 +50,7 @@ export async function askSelect<T>(
   message: string,
   options: { title: string; value: T }[],
 ): Promise<T> {
-  const { value } = await prompts(
-    { type: 'select', name: 'value', message, choices: options },
-    { onCancel },
-  )
-  return value as T
+  return run(select({ message, choices: options.map((o) => ({ name: o.title, value: o.value })) }))
 }
 //#endregion
 
@@ -73,20 +60,13 @@ export async function pickFuzzy<T>(
   items: T[],
   toLabel: (item: T) => string,
 ): Promise<T> {
-  // 直接用 item 作对象作为 value：prompts 内部以 `||` 取值，索引 0 会被当成 falsy 而误取 title
-  const choices = items.map((item) => ({ title: toLabel(item), value: item }))
-  const fuse = new Fuse(choices, { keys: ['title'], threshold: 0.4 })
-  const { value } = await prompts(
-    {
-      type: 'autocomplete',
-      name: 'value',
+  const choices = items.map((item) => ({ name: toLabel(item), value: item }))
+  const fuse = new Fuse(choices, { keys: ['name'], threshold: 0.4 })
+  return run(
+    search({
       message,
-      choices,
-      suggest: async (input: string) =>
-        input ? fuse.search(input).map((r) => r.item) : choices,
-    },
-    { onCancel },
+      source: async (term) => (term ? fuse.search(term).map((r) => r.item) : choices),
+    }),
   )
-  return value as T
 }
 //#endregion

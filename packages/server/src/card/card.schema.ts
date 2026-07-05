@@ -14,6 +14,9 @@ export class CardEntity {
 
   @Prop({ type: String, default: 'unsold' })
   status!: CardStatus
+
+  @Prop({ type: String, default: null })
+  orderId!: string | null
 }
 
 export const CardSchema = SchemaFactory.createForClass(CardEntity)

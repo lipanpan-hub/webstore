@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import type { ApiResponse, ProductView, PaymentMethod } from '@webstore/shared'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import QRCode from 'qrcode'
+import type {
+  ApiResponse,
+  ProductView,
+  PaymentMethod,
+  CreateOrderResult,
+  OrderStatusView,
+} from '@webstore/shared'
 import { API_BASE } from '@/config'
 
 const route = useRoute()
-const router = useRouter()
 
 //#region 商品详情加载
 const product = ref<ProductView | null>(null)
@@ -80,19 +86,94 @@ function validate(): string {
   return ''
 }
 
-function submit() {
+async function submit() {
   const msg = validate()
   if (msg) {
     alert(msg)
     if (msg === '验证码错误') makeCaptcha()
     return
   }
-  // 方案 A：暂不落库，仅提示提交成功并回显表单信息
-  const payName = payments.value.find((p) => p.id === form.paymentId)?.name ?? '-'
-  alert(
-    `提交成功（占位）\n商品：${product.value?.name}\n数量：${form.quantity}\n` +
-      `邮箱：${form.email}\n支付方式：${payName}\n应付：￥${totalPrice.value}`,
-  )
+  submitting.value = true
+  try {
+    const res = await fetch(`${API_BASE}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productId: route.params.id,
+        quantity: form.quantity,
+        email: form.email,
+        orderPassword: form.orderPassword,
+        paymentId: form.paymentId,
+      }),
+    })
+    const body: ApiResponse<CreateOrderResult> = await res.json()
+    if (body.code !== 200) throw new Error(body.message)
+    await openPayment(body.data)
+  } catch (e) {
+    alert((e as Error).message || '下单失败')
+  } finally {
+    submitting.value = false
+  }
+}
+//#endregion
+
+//#region 支付弹窗与轮询
+const submitting = ref(false)
+const pay = reactive({
+  open: false,
+  qrDataUrl: '',
+  status: 'pending' as OrderStatusView['status'],
+  cards: [] as string[],
+  countdown: 0,
+})
+let pollTimer: number | undefined
+let countdownTimer: number | undefined
+
+async function openPayment(order: CreateOrderResult) {
+  // 生成支付二维码并开启轮询与倒计时
+  pay.qrDataUrl = await QRCode.toDataURL(order.qrCode, { width: 220, margin: 1 })
+  pay.status = 'pending'
+  pay.cards = []
+  pay.open = true
+  pay.countdown = Math.max(0, Math.ceil((order.expireAt - Date.now()) / 1000))
+
+  countdownTimer = window.setInterval(() => {
+    pay.countdown = Math.max(0, pay.countdown - 1)
+    if (pay.countdown === 0) stopTimers()
+  }, 1000)
+
+  const orderId = order.orderId
+  pollTimer = window.setInterval(() => pollStatus(orderId), 2000)
+}
+
+async function pollStatus(orderId: string) {
+  try {
+    const res = await fetch(`${API_BASE}/orders/${orderId}/status`)
+    const body: ApiResponse<OrderStatusView> = await res.json()
+    if (body.code !== 200) return
+    pay.status = body.data.status
+    if (body.data.status === 'paid') {
+      pay.cards = body.data.cards ?? []
+      stopTimers()
+      loadProduct()
+    } else if (body.data.status === 'expired') {
+      stopTimers()
+    }
+  } catch {
+    // 单次轮询失败忽略，等待下次
+  }
+}
+
+function stopTimers() {
+  if (pollTimer) window.clearInterval(pollTimer)
+  if (countdownTimer) window.clearInterval(countdownTimer)
+  pollTimer = undefined
+  countdownTimer = undefined
+}
+
+function closePayment() {
+  stopTimers()
+  pay.open = false
 }
 //#endregion
 
@@ -101,6 +182,8 @@ onMounted(() => {
   loadPayments()
   makeCaptcha()
 })
+
+onUnmounted(stopTimers)
 </script>
 
 <template>
@@ -157,10 +240,43 @@ onMounted(() => {
           </div>
         </label>
         <div class="total">应付：<b>￥{{ totalPrice }}</b></div>
-        <button class="submit" :disabled="stock === 0" @click="submit">
-          {{ stock === 0 ? '缺货' : '立即购买' }}
+        <button class="submit" :disabled="stock === 0 || submitting" @click="submit">
+          {{ stock === 0 ? '缺货' : submitting ? '提交中...' : '立即购买' }}
         </button>
       </section>
+    </div>
+
+    <!-- 支付弹窗 -->
+    <div v-if="pay.open" class="pay-mask" @click.self="closePayment">
+      <div class="pay-box">
+        <button class="pay-close" @click="closePayment">×</button>
+
+        <template v-if="pay.status === 'pending'">
+          <h3>扫码支付</h3>
+          <img :src="pay.qrDataUrl" alt="支付二维码" class="pay-qr" />
+          <p class="pay-tip">请使用支付宝扫码支付</p>
+          <p class="pay-countdown">
+            剩余支付时间：<b>{{ Math.floor(pay.countdown / 60) }}:{{
+              String(pay.countdown % 60).padStart(2, '0')
+            }}</b>
+          </p>
+        </template>
+
+        <template v-else-if="pay.status === 'paid'">
+          <h3 class="pay-ok">支付成功，卡密如下</h3>
+          <ul class="pay-cards">
+            <li v-for="(c, i) in pay.cards" :key="i">{{ c }}</li>
+          </ul>
+          <p class="pay-tip">卡密已发货，同时发送至你的邮箱</p>
+          <button class="submit" @click="closePayment">完成</button>
+        </template>
+
+        <template v-else>
+          <h3 class="pay-fail">订单已失效</h3>
+          <p class="pay-tip">超时未支付，库存已释放，请重新下单</p>
+          <button class="submit" @click="closePayment">关闭</button>
+        </template>
+      </div>
     </div>
   </div>
 </template>
@@ -316,5 +432,85 @@ onMounted(() => {
 .submit:disabled {
   background: #bbb;
   cursor: not-allowed;
+}
+
+.pay-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.pay-box {
+  position: relative;
+  width: 320px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.pay-box h3 {
+  margin-bottom: 16px;
+}
+
+.pay-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  border: none;
+  background: none;
+  font-size: 22px;
+  color: #999;
+  cursor: pointer;
+}
+
+.pay-qr {
+  width: 220px;
+  height: 220px;
+}
+
+.pay-tip {
+  color: #888;
+  font-size: 13px;
+  margin: 10px 0;
+}
+
+.pay-countdown b {
+  color: #e05353;
+}
+
+.pay-ok {
+  color: #52a852;
+}
+
+.pay-fail {
+  color: #e05353;
+}
+
+.pay-cards {
+  list-style: none;
+  text-align: left;
+  background: #f7f7f7;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.pay-cards li {
+  font-family: monospace;
+  font-size: 13px;
+  padding: 4px 0;
+  border-bottom: 1px dashed #ddd;
+  word-break: break-all;
+}
+
+.pay-cards li:last-child {
+  border-bottom: none;
 }
 </style>
