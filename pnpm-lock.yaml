@@ -50,6 +50,9 @@ importers:
       rxjs:
         specifier: ^7.8.0
         version: 7.8.2
+      yungouos-pay-node-sdk:
+        specifier: ^2.1.35
+        version: 2.1.35
     devDependencies:
       '@nestjs/cli':
         specifier: ^11.0.0
@@ -1118,6 +1121,9 @@ packages:
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
+  axios@0.21.4:
+    resolution: {integrity: sha512-ut5vewkiu8jjGBdqpM44XxjuCjq9LAKeHVmoVfHVzy8eHgxxq8SbAVQNovDA8mVi05kP0Ea/n/UzcSHcTJQfNg==}
+
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
 
@@ -1213,6 +1219,9 @@ packages:
 
   chardet@2.2.0:
     resolution: {integrity: sha512-rddelWYNPRrXq6PtNEN2S3f6t9ILzvqaN5pVgi4kqt9jHQaXIial9PznB5iSPVlQSLNaaH22ItWz3EJtQ10+OA==}
+
+  charenc@0.0.2:
+    resolution: {integrity: sha512-yrLQ/yVUFXkzg7EDQsPieE/53+0RlaWTs+wBrvW36cyilJ2SaDWfl4Yj7MtLTXleV9uEKefbAGUPv2/iWSooRA==}
 
   chokidar@4.0.3:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
@@ -1326,6 +1335,9 @@ packages:
 
   create-require@1.1.1:
     resolution: {integrity: sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==}
+
+  crypt@0.0.2:
+    resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
 
   crypto-js@4.2.0:
     resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
@@ -1530,6 +1542,15 @@ packages:
     resolution: {integrity: sha512-PpOwAdQ/YlXQ2vj8a3h8IipDuYRi3wceVQQGYWxNINccq40Anw7BlsEXCMbt1Zt+OLA6Fq9suIpIWD0OsnISlw==}
     engines: {node: '>=8'}
 
+  follow-redirects@1.16.0:
+    resolution: {integrity: sha512-y5rN/uOsadFT/JfYwhxRS5R7Qce+g3zG97+JrtFZlC9klX/W5hD7iiLzScI4nZqUS7DNUdhPgw4xI8W2LuXlUw==}
+    engines: {node: '>=4.0'}
+    peerDependencies:
+      debug: '*'
+    peerDependenciesMeta:
+      debug:
+        optional: true
+
   fork-ts-checker-webpack-plugin@9.1.0:
     resolution: {integrity: sha512-mpafl89VFPJmhnJ1ssH+8wmM2b50n+Rew5x42NeI2U78aRWgtkEtGmctp7iT16UjquJTjorEmIfESj3DxdW84Q==}
     engines: {node: '>=14.21.3'}
@@ -1650,6 +1671,9 @@ packages:
   is-arrayish@0.2.1:
     resolution: {integrity: sha512-zz06S8t0ozoDXMG+ube26zeCTNXcKIPJZJi8hBrF4idCLms4CG9QtK7qBl1boi5ODzFpjswb5JPmHCbMpjaYzg==}
 
+  is-buffer@1.1.6:
+    resolution: {integrity: sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==}
+
   is-extendable@0.1.1:
     resolution: {integrity: sha512-5BMULNob1vgFX6EjQw5izWDxrecWK9AM72rugNr0TFldMOi0fj6Jk+zeKIt0xGj4cEfQIJth4w3OKWOJ4f+AFw==}
     engines: {node: '>=0.10.0'}
@@ -1753,6 +1777,9 @@ packages:
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
+
+  md5@2.3.0:
+    resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
 
   media-typer@0.3.0:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
@@ -2564,6 +2591,9 @@ packages:
   yoctocolors-cjs@2.1.3:
     resolution: {integrity: sha512-U/PBtDf35ff0D8X8D0jfdzHYEPFxAI7jJlxZXwCSez5M3190m+QobIfh+sWDWSHMCWWJN2AWamkegn6vr6YBTw==}
     engines: {node: '>=18'}
+
+  yungouos-pay-node-sdk@2.1.35:
+    resolution: {integrity: sha512-kYMJclG6nRXmqlnr3p9M4NKWAmTwEuyiKWS9KDlJ1v/mTF0beWjPvMD6tWsY/76s8IqmL81m2Z7fjrrgYqRI8Q==}
 
 snapshots:
 
@@ -3524,6 +3554,12 @@ snapshots:
 
   asynckit@0.4.0: {}
 
+  axios@0.21.4:
+    dependencies:
+      follow-redirects: 1.16.0
+    transitivePeerDependencies:
+      - debug
+
   balanced-match@1.0.2: {}
 
   balanced-match@4.0.4: {}
@@ -3623,6 +3659,8 @@ snapshots:
   chalk@5.6.2: {}
 
   chardet@2.2.0: {}
+
+  charenc@0.0.2: {}
 
   chokidar@4.0.3:
     dependencies:
@@ -3724,6 +3762,8 @@ snapshots:
       typescript: 5.9.3
 
   create-require@1.1.1: {}
+
+  crypt@0.0.2: {}
 
   crypto-js@4.2.0: {}
 
@@ -3946,6 +3986,8 @@ snapshots:
       locate-path: 5.0.0
       path-exists: 4.0.0
 
+  follow-redirects@1.16.0: {}
+
   fork-ts-checker-webpack-plugin@9.1.0(typescript@5.9.3)(webpack@5.106.2):
     dependencies:
       '@babel/code-frame': 7.29.7
@@ -4090,6 +4132,8 @@ snapshots:
 
   is-arrayish@0.2.1: {}
 
+  is-buffer@1.1.6: {}
+
   is-extendable@0.1.1: {}
 
   is-fullwidth-code-point@3.0.0: {}
@@ -4168,6 +4212,12 @@ snapshots:
   map-obj@4.3.0: {}
 
   math-intrinsics@1.1.0: {}
+
+  md5@2.3.0:
+    dependencies:
+      charenc: 0.0.2
+      crypt: 0.0.2
+      is-buffer: 1.1.6
 
   media-typer@0.3.0: {}
 
@@ -4941,3 +4991,11 @@ snapshots:
   yn@3.1.1: {}
 
   yoctocolors-cjs@2.1.3: {}
+
+  yungouos-pay-node-sdk@2.1.35:
+    dependencies:
+      axios: 0.21.4
+      md5: 2.3.0
+      qs: 6.15.3
+    transitivePeerDependencies:
+      - debug

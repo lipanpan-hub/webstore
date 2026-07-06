@@ -63,12 +63,12 @@ onMounted(loadCatalog)
 <style scoped>
 .tip {
   text-align: center;
-  color: #888;
+  color: var(--text-muted);
   padding: 40px 0;
 }
 
 .tip.error {
-  color: #e05353;
+  color: var(--danger);
 }
 
 .category {
@@ -78,7 +78,7 @@ onMounted(loadCatalog)
 .category-title {
   font-size: 18px;
   font-weight: 600;
-  border-left: 4px solid #4a90d9;
+  border-left: 4px solid var(--primary);
   padding-left: 10px;
   margin-bottom: 16px;
 }
@@ -90,10 +90,11 @@ onMounted(loadCatalog)
 }
 
 .product-card {
-  border: 1px solid #35a01fff;
+  border: 1px solid var(--border-input);
   border-radius: 8px;
   padding: 16px;
   cursor: pointer;
+  background: var(--surface);
   transition: box-shadow 0.2s;
 }
 
@@ -108,7 +109,7 @@ onMounted(loadCatalog)
 
 .product-desc {
   font-size: 13px;
-  color: #999;
+  color: var(--text-faint);
   min-height: 36px;
   margin-bottom: 12px;
 }
@@ -120,21 +121,21 @@ onMounted(loadCatalog)
 }
 
 .price {
-  color: #e05353;
+  color: var(--danger);
   font-weight: 600;
   font-size: 16px;
 }
 
 .stock {
   font-size: 12px;
-  color: #52a852;
-  background: #eef7ee;
+  color: var(--success);
+  background: var(--success-bg);
   padding: 2px 8px;
   border-radius: 10px;
 }
 
 .stock.out-of-stock {
-  color: #999;
-  background: #f2f2f2;
+  color: var(--text-faint);
+  background: var(--chip-bg);
 }
 </style>

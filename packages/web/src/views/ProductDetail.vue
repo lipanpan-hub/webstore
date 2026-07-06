@@ -284,17 +284,17 @@ onUnmounted(stopTimers)
 <style scoped>
 .tip {
   text-align: center;
-  color: #888;
+  color: var(--text-muted);
   padding: 40px 0;
 }
 
 .tip.error {
-  color: #e05353;
+  color: var(--danger);
 }
 
 .back {
   display: inline-block;
-  color: #4a90d9;
+  color: var(--primary);
   cursor: pointer;
   margin-bottom: 16px;
 }
@@ -312,7 +312,7 @@ onUnmounted(stopTimers)
 }
 
 .desc {
-  color: #999;
+  color: var(--text-faint);
   margin-bottom: 12px;
 }
 
@@ -324,26 +324,26 @@ onUnmounted(stopTimers)
 }
 
 .price {
-  color: #e05353;
+  color: var(--danger);
   font-weight: 600;
   font-size: 20px;
 }
 
 .stock {
   font-size: 12px;
-  color: #52a852;
-  background: #eef7ee;
+  color: var(--success);
+  background: var(--success-bg);
   padding: 2px 8px;
   border-radius: 10px;
 }
 
 .stock.out-of-stock {
-  color: #999;
-  background: #f2f2f2;
+  color: var(--text-faint);
+  background: var(--chip-bg);
 }
 
 .detail-text {
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
   padding-top: 16px;
 }
 
@@ -353,15 +353,16 @@ onUnmounted(stopTimers)
 }
 
 .detail-text p {
-  color: #555;
+  color: var(--text-muted);
   line-height: 1.7;
   white-space: pre-wrap;
 }
 
 .buy {
-  border: 1px solid #eee;
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 20px;
+  background: var(--surface);
 }
 
 .buy h3 {
@@ -376,7 +377,7 @@ onUnmounted(stopTimers)
 .field > span {
   display: block;
   font-size: 13px;
-  color: #666;
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 
@@ -384,9 +385,11 @@ onUnmounted(stopTimers)
 .field select {
   width: 100%;
   padding: 8px 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-input);
   border-radius: 6px;
   font-size: 14px;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .captcha {
@@ -401,9 +404,10 @@ onUnmounted(stopTimers)
 .captcha-q {
   white-space: nowrap;
   padding: 0 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-input);
   border-radius: 6px;
-  background: #f7f7f7;
+  background: var(--chip-bg);
+  color: var(--text);
   cursor: pointer;
   font-size: 14px;
 }
@@ -414,7 +418,7 @@ onUnmounted(stopTimers)
 }
 
 .total b {
-  color: #e05353;
+  color: var(--danger);
   font-size: 18px;
 }
 
@@ -423,7 +427,7 @@ onUnmounted(stopTimers)
   padding: 10px;
   border: none;
   border-radius: 6px;
-  background: #4a90d9;
+  background: var(--primary);
   color: #fff;
   font-size: 15px;
   cursor: pointer;
@@ -447,7 +451,8 @@ onUnmounted(stopTimers)
 .pay-box {
   position: relative;
   width: 320px;
-  background: #fff;
+  background: var(--surface);
+  color: var(--text);
   border-radius: 10px;
   padding: 24px;
   text-align: center;
@@ -464,7 +469,7 @@ onUnmounted(stopTimers)
   border: none;
   background: none;
   font-size: 22px;
-  color: #999;
+  color: var(--text-faint);
   cursor: pointer;
 }
 
@@ -474,27 +479,27 @@ onUnmounted(stopTimers)
 }
 
 .pay-tip {
-  color: #888;
+  color: var(--text-muted);
   font-size: 13px;
   margin: 10px 0;
 }
 
 .pay-countdown b {
-  color: #e05353;
+  color: var(--danger);
 }
 
 .pay-ok {
-  color: #52a852;
+  color: var(--success);
 }
 
 .pay-fail {
-  color: #e05353;
+  color: var(--danger);
 }
 
 .pay-cards {
   list-style: none;
   text-align: left;
-  background: #f7f7f7;
+  background: var(--chip-bg);
   border-radius: 6px;
   padding: 10px 12px;
   margin-bottom: 12px;
@@ -506,7 +511,7 @@ onUnmounted(stopTimers)
   font-family: monospace;
   font-size: 13px;
   padding: 4px 0;
-  border-bottom: 1px dashed #ddd;
+  border-bottom: 1px dashed var(--border-input);
   word-break: break-all;
 }
 
