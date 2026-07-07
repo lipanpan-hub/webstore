@@ -18,7 +18,7 @@ export interface Category {
 }
 
 // 支付服务商类型
-export type PaymentProvider = 'alipay' | 'wechat' | 'stripe'
+export type PaymentProvider = 'alipay' | 'wechat' | 'stripe' | 'creem' | 'epay'
 
 // 支付方式（面向前端的公开视图，不含服务商敏感配置）
 export interface PaymentMethod {
@@ -75,10 +75,14 @@ export interface CreateOrderInput {
   paymentId: string
 }
 
-// 创建订单结果：返回支付二维码内容与失效时间戳
+// 支付交付形态：qrcode 前端渲染二维码扫码 / redirect 浏览器跳转收银台
+export type PayMode = 'qrcode' | 'redirect'
+
+// 创建订单结果：payPayload 依 payMode 解读（二维码内容或跳转 URL）
 export interface CreateOrderResult {
   orderId: string
-  qrCode: string
+  payMode: PayMode
+  payPayload: string
   totalAmount: string
   expireAt: number
 }

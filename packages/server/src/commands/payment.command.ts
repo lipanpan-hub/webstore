@@ -43,6 +43,10 @@ async function promptConfig(
 ): Promise<Record<string, string>> {
   const config: Record<string, string> = {}
   for (const field of def.fields) {
+    if (field.options) {
+      config[field.key] = await askSelect(field.label, field.options)
+      continue
+    }
     const label = field.secret ? `${field.label}（敏感）` : field.label
     config[field.key] = await askOptionalText(label, current[field.key])
   }
@@ -54,7 +58,11 @@ function printDetail(p: PaymentMethodDetail): void {
   console.log(`${p.id}  [sort=${p.sort}]  [${p.enabled ? '启用' : '停用'}]  ${p.name}  <${def.label}>`)
   for (const field of def.fields) {
     const raw = p.config[field.key] ?? ''
-    console.log(`    ${field.label}: ${field.secret ? maskSecret(raw) : raw || '(未配置)'}`)
+    let shown: string
+    if (field.secret) shown = maskSecret(raw)
+    else if (field.options) shown = field.options.find((o) => o.value === raw)?.title ?? raw ?? '(未配置)'
+    else shown = raw || '(未配置)'
+    console.log(`    ${field.label}: ${shown}`)
   }
 }
 //#endregion

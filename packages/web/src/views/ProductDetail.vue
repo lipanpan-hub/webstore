@@ -6,6 +6,7 @@ import type {
   ApiResponse,
   ProductView,
   PaymentMethod,
+  PayMode,
   CreateOrderResult,
   OrderStatusView,
 } from '@webstore/shared'
@@ -121,6 +122,7 @@ async function submit() {
 const submitting = ref(false)
 const pay = reactive({
   open: false,
+  mode: 'qrcode' as PayMode,
   qrDataUrl: '',
   status: 'pending' as OrderStatusView['status'],
   cards: [] as string[],
@@ -130,8 +132,15 @@ let pollTimer: number | undefined
 let countdownTimer: number | undefined
 
 async function openPayment(order: CreateOrderResult) {
-  // 生成支付二维码并开启轮询与倒计时
-  pay.qrDataUrl = await QRCode.toDataURL(order.qrCode, { width: 220, margin: 1 })
+  // 跳转类支付：直接跳转收银台，付款后经 return_url 跳回本页并携带 orderId
+  if (order.payMode === 'redirect') {
+    window.location.href = order.payPayload
+    return
+  }
+
+  // 扫码类支付：生成二维码并开启轮询与倒计时
+  pay.mode = 'qrcode'
+  pay.qrDataUrl = await QRCode.toDataURL(order.payPayload, { width: 220, margin: 1 })
   pay.status = 'pending'
   pay.cards = []
   pay.open = true
@@ -142,7 +151,19 @@ async function openPayment(order: CreateOrderResult) {
     if (pay.countdown === 0) stopTimers()
   }, 1000)
 
-  const orderId = order.orderId
+  startPolling(order.orderId)
+}
+
+function resumePayment(orderId: string) {
+  // 网站支付跳回：无二维码，直接确认支付结果并展示卡密
+  pay.mode = 'redirect'
+  pay.status = 'pending'
+  pay.cards = []
+  pay.open = true
+  startPolling(orderId)
+}
+
+function startPolling(orderId: string) {
   pollTimer = window.setInterval(() => pollStatus(orderId), 2000)
 }
 
@@ -181,6 +202,9 @@ onMounted(() => {
   loadProduct()
   loadPayments()
   makeCaptcha()
+  // 跳转类支付跳回：携带 orderId 时恢复支付结果确认
+  const resumeId = route.query.orderId
+  if (typeof resumeId === 'string' && resumeId) resumePayment(resumeId)
 })
 
 onUnmounted(stopTimers)
@@ -252,14 +276,20 @@ onUnmounted(stopTimers)
         <button class="pay-close" @click="closePayment">×</button>
 
         <template v-if="pay.status === 'pending'">
-          <h3>扫码支付</h3>
-          <img :src="pay.qrDataUrl" alt="支付二维码" class="pay-qr" />
-          <p class="pay-tip">请使用支付宝扫码支付</p>
-          <p class="pay-countdown">
-            剩余支付时间：<b>{{ Math.floor(pay.countdown / 60) }}:{{
-              String(pay.countdown % 60).padStart(2, '0')
-            }}</b>
-          </p>
+          <template v-if="pay.mode === 'qrcode'">
+            <h3>扫码支付</h3>
+            <img :src="pay.qrDataUrl" alt="支付二维码" class="pay-qr" />
+            <p class="pay-tip">请使用支付宝扫码支付</p>
+            <p class="pay-countdown">
+              剩余支付时间：<b>{{ Math.floor(pay.countdown / 60) }}:{{
+                String(pay.countdown % 60).padStart(2, '0')
+              }}</b>
+            </p>
+          </template>
+          <template v-else>
+            <h3>确认支付结果</h3>
+            <p class="pay-tip">正在确认支付结果，请稍候...</p>
+          </template>
         </template>
 
         <template v-else-if="pay.status === 'paid'">

@@ -7,6 +7,7 @@ export interface ProviderConfigField {
   key: string
   label: string
   secret?: boolean // 敏感字段，展示时打码
+  options?: { title: string; value: string }[] // 有则为枚举字段，录入时改用选择
 }
 
 // 服务商定义
@@ -21,6 +22,15 @@ export const PAYMENT_PROVIDERS: ProviderDef[] = [
     provider: 'alipay',
     label: '支付宝',
     fields: [
+      {
+        key: 'product',
+        label: '支付产品',
+        options: [
+          { title: '当面付（扫码）', value: 'face2face' },
+          { title: '电脑网站支付', value: 'page' },
+          { title: '手机网站支付', value: 'wap' },
+        ],
+      },
       { key: 'appId', label: '应用 AppId' },
       { key: 'privateKey', label: '应用私钥', secret: true },
       { key: 'alipayPublicKey', label: '支付宝公钥', secret: true },
@@ -44,6 +54,25 @@ export const PAYMENT_PROVIDERS: ProviderDef[] = [
       { key: 'secretKey', label: 'Secret Key', secret: true },
       { key: 'publishableKey', label: 'Publishable Key' },
       { key: 'webhookSecret', label: 'Webhook 签名密钥', secret: true },
+    ],
+  },
+  {
+    provider: 'creem',
+    label: 'Creem',
+    fields: [
+      { key: 'apiKey', label: 'API Key', secret: true },
+      { key: 'webhookSecret', label: 'Webhook 签名密钥', secret: true },
+      { key: 'testMode', label: '测试模式 (true/false)' },
+    ],
+  },
+  {
+    provider: 'epay',
+    label: '易支付',
+    fields: [
+      { key: 'apiUrl', label: '接口地址 (如 https://pay.xxx.com)' },
+      { key: 'pid', label: '商户 ID' },
+      { key: 'key', label: '商户密钥', secret: true },
+      { key: 'type', label: '支付类型 (alipay/wxpay，默认 alipay)' },
     ],
   },
 ]

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common'
+import { All, Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common'
+import type { RawBodyRequest } from '@nestjs/common'
 import type {
   ApiResponse,
   CreateOrderInput,
@@ -6,10 +7,16 @@ import type {
   OrderStatusView,
 } from '@webstore/shared'
 import { OrderService } from './order.service.js'
+import { PaymentService } from '../payment/payment.service.js'
+import { PaymentGatewayFactory } from '../payment/gateway/payment-gateway.factory.js'
 
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly paymentService: PaymentService,
+    private readonly gatewayFactory: PaymentGatewayFactory,
+  ) {}
 
   @Post()
   async create(@Body() body: CreateOrderInput): Promise<ApiResponse<CreateOrderResult>> {
@@ -23,5 +30,27 @@ export class OrderController {
     // GET /orders/:id/status 轮询订单支付状态，支付完成返回卡密
     const data = await this.orderService.getStatus(id)
     return { code: 200, message: 'ok', data }
+  }
+
+  @All('notify/:paymentId')
+  async notify(
+    @Param('paymentId') paymentId: string, // 路径参数，支付记录 ID，用于反查支付方式
+    @Query() query: Record<string, string>, // URL 查询参数，GET 回调的数据载体
+    @Body() body: Record<string, any>, // 请求体，POST 回调的数据载体
+    @Req() req: RawBodyRequest<{ headers: Record<string, string> }>, // 原始请求，取 headers 与 rawBody 供验签
+  ): Promise<string> {
+    // 支付网关异步回调（GET/POST 兼容）：解析订单号后触发即时确认，结果真伪由主动查询保证
+    try {
+      const method = await this.paymentService.findDetailById(paymentId)
+      const rawBody = req.rawBody?.toString('utf8') ?? ''
+      const orderId = await this.gatewayFactory
+        .create(method)
+        .parseNotify({ query, body, headers: req.headers, rawBody })
+      if (orderId) await this.orderService.handleNotify(orderId)
+    } catch {
+      // 回调异常不影响网关，交由前端轮询与超时兜底
+    }
+    // 多数网关约定收到 success 文本即停止重发
+    return 'success'
   }
 }

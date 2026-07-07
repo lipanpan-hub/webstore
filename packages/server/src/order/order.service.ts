@@ -5,6 +5,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, Types } from 'mongoose'
 import { createHash } from 'node:crypto'
@@ -14,6 +15,7 @@ import { ProductService } from '../product/product.service.js'
 import { CardService } from '../card/card.service.js'
 import { PaymentService } from '../payment/payment.service.js'
 import { PaymentGatewayFactory } from '../payment/gateway/payment-gateway.factory.js'
+import type { PrecreateResult } from '../payment/gateway/payment-gateway.interface.js'
 
 // 订单有效期：2 分钟内未支付则失效
 const ORDER_TTL_MS = 2 * 60 * 1000
@@ -23,6 +25,10 @@ const SWEEP_INTERVAL_MS = 30 * 1000
 @Injectable()
 export class OrderService implements OnModuleInit, OnModuleDestroy {
   private sweepTimer?: NodeJS.Timeout
+  // 支付回调基础地址：网关支付成功后回调本服务的公网地址（经 .env 注入）
+  private readonly paymentNotifyBaseUrl: string
+  // 前端基础地址：跳转类支付付款后浏览器同步跳回此站点的商品页（经 .env 注入）
+  private readonly webBaseUrl: string
 
   constructor(
     @InjectModel(OrderEntity.name) private readonly orderModel: Model<OrderDocument>,
@@ -30,7 +36,11 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     private readonly cardService: CardService,
     private readonly paymentService: PaymentService,
     private readonly gatewayFactory: PaymentGatewayFactory,
-  ) {}
+    config: ConfigService,
+  ) {
+    this.paymentNotifyBaseUrl = config.get<string>('PAYMENT_NOTIFY_BASE_URL', 'http://localhost:3000')
+    this.webBaseUrl = config.get<string>('WEB_BASE_URL', 'http://localhost:5173')
+  }
 
   //#region 下单
   async createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
@@ -55,14 +65,24 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     const totalAmount = (product.price * input.quantity).toFixed(2)
     const expireAt = new Date(Date.now() + ORDER_TTL_MS)
 
-    let qrCode: string
+    let payMode: PrecreateResult['mode']
+    let payPayload: string
+    let tradeNo: string
     try {
       const gateway = this.gatewayFactory.create(method)
-      qrCode = await gateway.precreate({
+      const result = await gateway.precreate({
         outTradeNo: orderId.toString(),
+        productId: input.productId,
         totalAmount,
         subject: product.name,
+        // 回调地址携带支付方式 ID，回调时据此选择对应网关解析通知
+        notifyUrl: `${this.paymentNotifyBaseUrl}/orders/notify/${input.paymentId}`,
+        // 跳转类支付付款后跳回商品页并携带 orderId，前端据此恢复轮询展示卡密
+        returnUrl: `${this.webBaseUrl}/product/${input.productId}?orderId=${orderId.toString()}`,
       })
+      payMode = result.mode
+      payPayload = result.payload
+      tradeNo = result.tradeNo
     } catch (e) {
       await this.cardService.releaseCards(cardIds)
       throw new BadRequestException(`发起支付失败: ${(e as Error).message}`)
@@ -81,11 +101,12 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       provider: method.provider,
       cardIds,
       status: 'pending',
-      qrCode,
+      payPayload,
+      tradeNo,
       expireAt,
     })
 
-    return { orderId: orderId.toString(), qrCode, totalAmount, expireAt: expireAt.getTime() }
+    return { orderId: orderId.toString(), payMode, payPayload, totalAmount, expireAt: expireAt.getTime() }
   }
 
   private validate(input: CreateOrderInput): void {
@@ -101,25 +122,36 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
   }
   //#endregion
 
-  //#region 支付状态查询（前端轮询）
+  //#region 支付结果确认：回调优先，轮询兜底
+  async handleNotify(orderId: string): Promise<void> {
+    // 回调触发的即时确认（优先路径）：定位订单后主动向网关查询真实状态，成功即发货
+    const order = await this.orderModel.findById(orderId)
+    if (!order || order.status !== 'pending') return // 幂等：非待支付直接忽略
+    await this.confirmPending(order)
+  }
+
   async getStatus(orderId: string): Promise<OrderStatusView> {
+    // 前端轮询：作为回调丢失时的兜底，同样触发确认
     const order = await this.orderModel.findById(orderId)
     if (!order) throw new NotFoundException('订单不存在')
 
-    if (order.status === 'pending') {
-      if (order.expireAt.getTime() < Date.now()) {
-        await this.expireOrder(order)
-      } else {
-        const method = await this.paymentService.findDetailById(order.paymentId)
-        const state = await this.gatewayFactory.create(method).query(orderId)
-        if (state === 'success') await this.fulfill(order)
-        else if (state === 'closed') await this.expireOrder(order)
-      }
-    }
+    if (order.status === 'pending') await this.confirmPending(order)
 
     const view: OrderStatusView = { orderId, status: order.status }
     if (order.status === 'paid') view.cards = await this.cardService.getSecrets(order.cardIds)
     return view
+  }
+
+  private async confirmPending(order: OrderDocument): Promise<void> {
+    // 待支付订单的状态确认：过期即失效，否则以网关查询结果为准
+    if (order.expireAt.getTime() < Date.now()) {
+      await this.expireOrder(order)
+      return
+    }
+    const method = await this.paymentService.findDetailById(order.paymentId)
+    const state = await this.gatewayFactory.create(method).query(order.tradeNo ?? order.id)
+    if (state === 'success') await this.fulfill(order)
+    else if (state === 'closed') await this.expireOrder(order)
   }
 
   private async fulfill(order: OrderDocument): Promise<void> {

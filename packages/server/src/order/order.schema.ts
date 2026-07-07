@@ -40,7 +40,10 @@ export class OrderEntity {
   status!: OrderStatus
 
   @Prop()
-  qrCode?: string
+  payPayload?: string
+
+  @Prop()
+  tradeNo?: string
 
   @Prop({ required: true })
   expireAt!: Date

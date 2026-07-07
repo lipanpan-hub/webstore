@@ -50,6 +50,7 @@ export class PaymentService {
     // 供下单流程按 ID 获取含服务商配置的支付方式详情
     const doc = await this.paymentModel.findById(id).lean()
     if (!doc) throw new NotFoundException(`支付方式不存在: ${id}`)
+    // 返回含服务商配置(config)的完整支付方式详情 PaymentMethodDetail
     return this.toDetailFromLean(doc)
   }
 
