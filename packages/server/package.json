@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nest start --watch",
+    "dev": "nest start --debug --watch",
     "build": "nest build",
     "start": "node dist/main.js",
     "cli": "node dist/cli.js",

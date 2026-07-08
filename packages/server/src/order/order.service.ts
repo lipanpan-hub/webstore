@@ -17,8 +17,8 @@ import { PaymentService } from '../payment/payment.service.js'
 import { PaymentGatewayFactory } from '../payment/gateway/payment-gateway.factory.js'
 import type { PrecreateResult } from '../payment/gateway/payment-gateway.interface.js'
 
-// 订单有效期：2 分钟内未支付则失效
-const ORDER_TTL_MS = 2 * 60 * 1000
+// 订单有效期：5 分钟内未支付则失效
+const ORDER_TTL_MS = 5 * 60 * 1000
 // 定时兜底扫描间隔
 const SWEEP_INTERVAL_MS = 30 * 1000
 
@@ -123,10 +123,10 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
   //#endregion
 
   //#region 支付结果确认：回调优先，轮询兜底
-  async handleNotify(orderId: string): Promise<void> {
+  async confirmByNotify(orderId: string): Promise<void> {
     // 回调触发的即时确认（优先路径）：定位订单后主动向网关查询真实状态，成功即发货
     const order = await this.orderModel.findById(orderId)
-    if (!order || order.status !== 'pending') return // 幂等：非待支付直接忽略
+    if (!order || order.status !== 'pending') return // 幂等操作：非待支付直接忽略 只有待支付的订单 才需要处理回调
     await this.confirmPending(order)
   }
 
@@ -145,10 +145,12 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
   private async confirmPending(order: OrderDocument): Promise<void> {
     // 待支付订单的状态确认：过期即失效，否则以网关查询结果为准
     if (order.expireAt.getTime() < Date.now()) {
+      // 如果订单过期时间小于当前时间说明订单已经过期超时 也就没有必要后续操作了 直接返回
       await this.expireOrder(order)
       return
     }
     const method = await this.paymentService.findDetailById(order.paymentId)
+    // 调用 支付网关 对应的查询接口 主动从支付服务商哪里查询订单状态
     const state = await this.gatewayFactory.create(method).query(order.tradeNo ?? order.id)
     if (state === 'success') await this.fulfill(order)
     else if (state === 'closed') await this.expireOrder(order)

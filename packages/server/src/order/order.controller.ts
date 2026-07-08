@@ -1,4 +1,4 @@
-import { All, Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common'
+import { All, Body, Controller, Get, Param, Post, Query, Req, Logger } from '@nestjs/common'
 import type { RawBodyRequest } from '@nestjs/common'
 import type {
   ApiResponse,
@@ -12,6 +12,8 @@ import { PaymentGatewayFactory } from '../payment/gateway/payment-gateway.factor
 
 @Controller('orders')
 export class OrderController {
+  private readonly logger = new Logger(OrderController.name)
+
   constructor(
     private readonly orderService: OrderService,
     private readonly paymentService: PaymentService,
@@ -40,13 +42,14 @@ export class OrderController {
     @Req() req: RawBodyRequest<{ headers: Record<string, string> }>, // 原始请求，取 headers 与 rawBody 供验签
   ): Promise<string> {
     // 支付网关异步回调（GET/POST 兼容）：解析订单号后触发即时确认，结果真伪由主动查询保证
+    this.logger.debug(`收到支付回调 paymentId=${paymentId} query=${JSON.stringify(query)} body=${JSON.stringify(body)}`)
     try {
       const method = await this.paymentService.findDetailById(paymentId)
       const rawBody = req.rawBody?.toString('utf8') ?? ''
       const orderId = await this.gatewayFactory
         .create(method)
         .parseNotify({ query, body, headers: req.headers, rawBody })
-      if (orderId) await this.orderService.handleNotify(orderId)
+      if (orderId) await this.orderService.confirmByNotify(orderId)
     } catch {
       // 回调异常不影响网关，交由前端轮询与超时兜底
     }

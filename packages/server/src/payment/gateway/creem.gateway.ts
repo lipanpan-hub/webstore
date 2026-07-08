@@ -1,5 +1,6 @@
+import { Logger } from '@nestjs/common'
 import { Creem } from 'creem'
-import { verifyWebhookSignature } from 'creem/webhooks'
+import { constructWebhookEventEntity, parseWebhookEventEntity } from 'creem/webhooks'
 import type {
   PaymentGateway,
   PaymentNotify,
@@ -10,6 +11,7 @@ import type {
 
 // Creem 托管结账网关：基于官方 creem SDK，预下单创建 checkout 会话返回支付链接，按 checkout_id 查询状态
 export class CreemGateway implements PaymentGateway {
+  private readonly logger = new Logger(CreemGateway.name)
   private readonly client: Creem
   // webhook 验签密钥，配置后回调需携带合法 creem-signature 方可通过
   private readonly webhookSecret: string
@@ -20,7 +22,8 @@ export class CreemGateway implements PaymentGateway {
       apiKey: config.apiKey,
       server: config.testMode === 'true' ? 'test' : 'prod',
     })
-    this.webhookSecret = config.webhookSecret ?? ''
+    // 优先读取 .env 中的 CREEM_WEBHOOK_SECRET，未配置再回退到数据库配置
+    this.webhookSecret = process.env.CREEM_WEBHOOK_SECRET ?? config.webhookSecret ?? ''
   }
 
   async precreate(params: PrecreateParams): Promise<PrecreateResult> {
@@ -53,17 +56,26 @@ export class CreemGateway implements PaymentGateway {
   }
 
   async parseNotify(notify: PaymentNotify): Promise<string | null> {
-    // 配置了签名密钥则强制验签，验签失败直接判空拦截；未配置则跳过以兼容未启用验签的场景
-    // SDK 同时兼容标准 svix 方案与旧版 creem-signature，并自动做时间戳防重放，验签失败时抛错
-    if (this.webhookSecret) {
-      try {
-        await verifyWebhookSignature(notify.rawBody, notify.headers, this.webhookSecret)
-      } catch {
-        return null
-      }
+    // 解析 webhook 事件：配置密钥则验签+解析二合一（兼容 svix 与旧版 creem-signature，含时间戳防重放，验签失败抛错），
+    // 未配置密钥则仅解析以兼容未启用验签的场景；任何异常统一判空拦截
+    let event: Awaited<ReturnType<typeof constructWebhookEventEntity>>
+    try {
+      event = this.webhookSecret
+        ? await constructWebhookEventEntity(notify.rawBody, notify.headers, this.webhookSecret)
+        : parseWebhookEventEntity(notify.rawBody)
+    } catch {
+      return null
     }
-    // Creem webhook 为 JSON POST，request_id 即下单时传入的商户订单号
-    return notify.body?.object?.request_id ?? notify.body?.request_id ?? null
+
+    this.logger.debug(`收到 Creem webhook 事件: ${JSON.stringify(event)}`)
+
+
+    if (event.eventType === 'checkout.completed') {
+      // 只有 支付订单完成  才有必要 返回ID( requestId 即下单时以 outTradeNo 传入的商户订单号) 用于后续主动查询订单状态
+      // 如果是其他事件 与当前使用需求无关 直接返回null
+      return event.object.requestId ?? null
+    }
+    return null
   }
 
   //#region Creem 商品幂等映射：数据库商品 ID 作为 Creem 商品 name
