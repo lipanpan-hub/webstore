@@ -81,6 +81,8 @@ export type PayMode = 'qrcode' | 'redirect'
 // 创建订单结果：payPayload 依 payMode 解读（二维码内容或跳转 URL）
 export interface CreateOrderResult {
   orderId: string
+  // 访问令牌：查询订单状态与卡密的凭证，需随请求携带
+  accessToken: string
   payMode: PayMode
   payPayload: string
   totalAmount: string
@@ -91,5 +93,22 @@ export interface CreateOrderResult {
 export interface OrderStatusView {
   orderId: string
   status: OrderStatus
+  cards?: string[]
+}
+
+// 订单查询入参（游客凭邮箱与订单密码查询历史订单）
+export interface OrderQueryInput {
+  email: string
+  orderPassword: string
+}
+
+// 订单查询结果视图：一条订单的概要，已支付时附带卡密明文
+export interface OrderRecordView {
+  orderId: string
+  productName: string
+  quantity: number
+  totalAmount: string
+  status: OrderStatus
+  createdAt: number
   cards?: string[]
 }

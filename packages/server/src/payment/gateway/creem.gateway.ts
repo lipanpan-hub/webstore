@@ -34,6 +34,7 @@ export class CreemGateway implements PaymentGateway {
       productId,
       requestId: params.outTradeNo,
       customPrice: Math.round(Number(params.totalAmount) * 100),
+      successUrl: params.returnUrl,
       metadata: { subject: params.subject },
     })
     if (!checkout.checkoutUrl) {
@@ -90,6 +91,7 @@ export class CreemGateway implements PaymentGateway {
       price: 100,
       currency: 'USD',
       billingType: 'onetime',
+      defaultSuccessUrl: "",
     })
     return created.id
   }

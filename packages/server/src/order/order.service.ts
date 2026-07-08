@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   OnModuleDestroy,
@@ -8,8 +9,14 @@ import {
 import { ConfigService } from '@nestjs/config'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, Types } from 'mongoose'
-import { createHash } from 'node:crypto'
-import type { CreateOrderInput, CreateOrderResult, OrderStatusView } from '@webstore/shared'
+import { createHash, randomBytes } from 'node:crypto'
+import type {
+  CreateOrderInput,
+  CreateOrderResult,
+  OrderStatusView,
+  OrderQueryInput,
+  OrderRecordView,
+} from '@webstore/shared'
 import { OrderEntity, OrderDocument } from './order.schema.js'
 import { ProductService } from '../product/product.service.js'
 import { CardService } from '../card/card.service.js'
@@ -57,6 +64,8 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
 
     // 预生成订单 ID 作为支付宝 out_trade_no，先锁库存再发起支付
     const orderId = new Types.ObjectId()
+    // 访问令牌：高熵随机串，作为查询订单状态与卡密的唯一凭证
+    const accessToken = randomBytes(24).toString('hex')
     const cardIds = await this.cardService.lockCards(
       input.productId,
       input.quantity,
@@ -77,8 +86,8 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
         subject: product.name,
         // 回调地址携带支付方式 ID，回调时据此选择对应网关解析通知
         notifyUrl: `${this.paymentNotifyBaseUrl}/orders/notify/${input.paymentId}`,
-        // 跳转类支付付款后跳回商品页并携带 orderId，前端据此恢复轮询展示卡密
-        returnUrl: `${this.webBaseUrl}/product/${input.productId}?orderId=${orderId.toString()}`,
+        // 跳转类支付付款后直接跳回卡密展示页，并携带访问令牌以查看卡密
+        returnUrl: `${this.webBaseUrl}/result/${orderId.toString()}?token=${accessToken}`,
       })
       payMode = result.mode
       payPayload = result.payload
@@ -97,6 +106,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       totalAmount,
       email: input.email,
       orderPassword: this.hashPassword(input.orderPassword),
+      accessToken,
       paymentId: input.paymentId,
       provider: method.provider,
       cardIds,
@@ -106,7 +116,14 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       expireAt,
     })
 
-    return { orderId: orderId.toString(), payMode, payPayload, totalAmount, expireAt: expireAt.getTime() }
+    return {
+      orderId: orderId.toString(),
+      accessToken,
+      payMode,
+      payPayload,
+      totalAmount,
+      expireAt: expireAt.getTime(),
+    }
   }
 
   private validate(input: CreateOrderInput): void {
@@ -130,10 +147,12 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     await this.confirmPending(order)
   }
 
-  async getStatus(orderId: string): Promise<OrderStatusView> {
+  async getStatus(orderId: string, token: string): Promise<OrderStatusView> {
     // 前端轮询：作为回调丢失时的兜底，同样触发确认
     const order = await this.orderModel.findById(orderId)
     if (!order) throw new NotFoundException('订单不存在')
+    // 令牌校验：无有效令牌不得查看订单状态与卡密
+    if (order.accessToken !== token) throw new ForbiddenException('无权访问该订单')
 
     if (order.status === 'pending') await this.confirmPending(order)
 
@@ -169,6 +188,36 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     await this.cardService.releaseCards(order.cardIds)
     order.status = 'expired'
     await order.save()
+  }
+  //#endregion
+
+  //#region 订单查询：游客凭邮箱与订单密码查历史订单
+  async queryByEmail(input: OrderQueryInput): Promise<OrderRecordView[]> {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) {
+      throw new BadRequestException('邮箱格式不正确')
+    }
+    if (!input.orderPassword?.trim()) throw new BadRequestException('请输入订单密码')
+
+    const orders = await this.orderModel
+      .find({ email: input.email, orderPassword: this.hashPassword(input.orderPassword) })
+      .sort({ createdAt: -1 })
+      .lean()
+
+    const views: OrderRecordView[] = []
+    for (const order of orders) {
+      const view: OrderRecordView = {
+        orderId: String(order._id),
+        productName: order.productName,
+        quantity: order.quantity,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        createdAt: order.createdAt?.getTime() ?? 0,
+      }
+      // 仅已支付订单展示卡密明文
+      if (order.status === 'paid') view.cards = await this.cardService.getSecrets(order.cardIds)
+      views.push(view)
+    }
+    return views
   }
   //#endregion
 

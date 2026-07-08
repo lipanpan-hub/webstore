@@ -5,6 +5,8 @@ import type {
   CreateOrderInput,
   CreateOrderResult,
   OrderStatusView,
+  OrderQueryInput,
+  OrderRecordView,
 } from '@webstore/shared'
 import { OrderService } from './order.service.js'
 import { PaymentService } from '../payment/payment.service.js'
@@ -28,9 +30,19 @@ export class OrderController {
   }
 
   @Get(':id/status')
-  async status(@Param('id') id: string): Promise<ApiResponse<OrderStatusView>> {
-    // GET /orders/:id/status 轮询订单支付状态，支付完成返回卡密
-    const data = await this.orderService.getStatus(id)
+  async status(
+    @Param('id') id: string,
+    @Query('token') token: string,
+  ): Promise<ApiResponse<OrderStatusView>> {
+    // GET /orders/:id/status?token= 前端轮询订单支付状态，需携带访问令牌才能轮询这个接口，支付完成返回卡密
+    const data = await this.orderService.getStatus(id, token)
+    return { code: 200, message: 'ok', data }
+  }
+
+  @Post('query')
+  async query(@Body() body: OrderQueryInput): Promise<ApiResponse<OrderRecordView[]>> {
+    // POST /orders/query 凭邮箱与订单密码查询历史订单及卡密
+    const data = await this.orderService.queryByEmail(body)
     return { code: 200, message: 'ok', data }
   }
 

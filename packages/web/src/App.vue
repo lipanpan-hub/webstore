@@ -10,6 +10,7 @@ const { theme, toggle } = useTheme()
       <h1>WebStore</h1>
       <nav class="web-nav">
         <router-link to="/">首页</router-link>
+        <router-link to="/query">订单查询</router-link>
       </nav>
       <button
         class="theme-toggle"
@@ -85,6 +86,11 @@ body {
 .web-header h1 {
   font-size: 20px;
   font-weight: 600;
+}
+
+.web-nav {
+  display: flex;
+  gap: 20px;
 }
 
 .web-nav a {

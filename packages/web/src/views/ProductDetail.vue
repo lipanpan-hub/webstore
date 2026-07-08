@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import type {
   ApiResponse,
   ProductView,
   PaymentMethod,
-  PayMode,
   CreateOrderResult,
   OrderStatusView,
 } from '@webstore/shared'
 import { API_BASE } from '@/config'
 
 const route = useRoute()
+const router = useRouter()
 
 //#region 商品详情加载
 const product = ref<ProductView | null>(null)
@@ -122,10 +122,8 @@ async function submit() {
 const submitting = ref(false)
 const pay = reactive({
   open: false,
-  mode: 'qrcode' as PayMode,
   qrDataUrl: '',
   status: 'pending' as OrderStatusView['status'],
-  cards: [] as string[],
   countdown: 0,
 })
 let pollTimer: number | undefined
@@ -139,10 +137,8 @@ async function openPayment(order: CreateOrderResult) {
   }
 
   // 扫码类支付：生成二维码并开启轮询与倒计时
-  pay.mode = 'qrcode'
   pay.qrDataUrl = await QRCode.toDataURL(order.payPayload, { width: 220, margin: 1 })
   pay.status = 'pending'
-  pay.cards = []
   pay.open = true
   pay.countdown = Math.max(0, Math.ceil((order.expireAt - Date.now()) / 1000))
 
@@ -151,32 +147,23 @@ async function openPayment(order: CreateOrderResult) {
     if (pay.countdown === 0) stopTimers()
   }, 1000)
 
-  startPolling(order.orderId)
+  startPolling(order.orderId, order.accessToken)
 }
 
-function resumePayment(orderId: string) {
-  // 网站支付跳回：无二维码，直接确认支付结果并展示卡密
-  pay.mode = 'redirect'
-  pay.status = 'pending'
-  pay.cards = []
-  pay.open = true
-  startPolling(orderId)
+function startPolling(orderId: string, token: string) {
+  pollTimer = window.setInterval(() => pollStatus(orderId, token), 2000)
 }
 
-function startPolling(orderId: string) {
-  pollTimer = window.setInterval(() => pollStatus(orderId), 2000)
-}
-
-async function pollStatus(orderId: string) {
+async function pollStatus(orderId: string, token: string) {
   try {
-    const res = await fetch(`${API_BASE}/orders/${orderId}/status`)
+    const res = await fetch(`${API_BASE}/orders/${orderId}/status?token=${token}`)
     const body: ApiResponse<OrderStatusView> = await res.json()
     if (body.code !== 200) return
     pay.status = body.data.status
     if (body.data.status === 'paid') {
-      pay.cards = body.data.cards ?? []
+      // 支付成功：停止轮询并携带令牌跳转到卡密展示页
       stopTimers()
-      loadProduct()
+      router.push(`/result/${orderId}?token=${token}`)
     } else if (body.data.status === 'expired') {
       stopTimers()
     }
@@ -202,9 +189,6 @@ onMounted(() => {
   loadProduct()
   loadPayments()
   makeCaptcha()
-  // 跳转类支付跳回：携带 orderId 时恢复支付结果确认
-  const resumeId = route.query.orderId
-  if (typeof resumeId === 'string' && resumeId) resumePayment(resumeId)
 })
 
 onUnmounted(stopTimers)
@@ -275,36 +259,21 @@ onUnmounted(stopTimers)
       <div class="pay-box">
         <button class="pay-close" @click="closePayment">×</button>
 
-        <template v-if="pay.status === 'pending'">
-          <template v-if="pay.mode === 'qrcode'">
-            <h3>扫码支付</h3>
-            <img :src="pay.qrDataUrl" alt="支付二维码" class="pay-qr" />
-            <p class="pay-tip">请使用支付宝扫码支付</p>
-            <p class="pay-countdown">
-              剩余支付时间：<b>{{ Math.floor(pay.countdown / 60) }}:{{
-                String(pay.countdown % 60).padStart(2, '0')
-              }}</b>
-            </p>
-          </template>
-          <template v-else>
-            <h3>确认支付结果</h3>
-            <p class="pay-tip">正在确认支付结果，请稍候...</p>
-          </template>
-        </template>
-
-        <template v-else-if="pay.status === 'paid'">
-          <h3 class="pay-ok">支付成功，卡密如下</h3>
-          <ul class="pay-cards">
-            <li v-for="(c, i) in pay.cards" :key="i">{{ c }}</li>
-          </ul>
-          <p class="pay-tip">卡密已发货，同时发送至你的邮箱</p>
-          <button class="submit" @click="closePayment">完成</button>
-        </template>
-
-        <template v-else>
+        <template v-if="pay.status === 'expired'">
           <h3 class="pay-fail">订单已失效</h3>
           <p class="pay-tip">超时未支付，库存已释放，请重新下单</p>
           <button class="submit" @click="closePayment">关闭</button>
+        </template>
+
+        <template v-else>
+          <h3>扫码支付</h3>
+          <img :src="pay.qrDataUrl" alt="支付二维码" class="pay-qr" />
+          <p class="pay-tip">请使用支付宝扫码支付，支付成功后自动跳转</p>
+          <p class="pay-countdown">
+            剩余支付时间：<b>{{ Math.floor(pay.countdown / 60) }}:{{
+              String(pay.countdown % 60).padStart(2, '0')
+            }}</b>
+          </p>
         </template>
       </div>
     </div>
@@ -518,34 +487,7 @@ onUnmounted(stopTimers)
   color: var(--danger);
 }
 
-.pay-ok {
-  color: var(--success);
-}
-
 .pay-fail {
   color: var(--danger);
-}
-
-.pay-cards {
-  list-style: none;
-  text-align: left;
-  background: var(--chip-bg);
-  border-radius: 6px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  max-height: 180px;
-  overflow-y: auto;
-}
-
-.pay-cards li {
-  font-family: monospace;
-  font-size: 13px;
-  padding: 4px 0;
-  border-bottom: 1px dashed var(--border-input);
-  word-break: break-all;
-}
-
-.pay-cards li:last-child {
-  border-bottom: none;
 }
 </style>

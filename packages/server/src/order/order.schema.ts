@@ -27,6 +27,10 @@ export class OrderEntity {
   @Prop({ required: true })
   orderPassword!: string
 
+  // 访问令牌：查询订单状态与卡密的高熵凭证
+  @Prop({ required: true })
+  accessToken!: string
+
   @Prop({ required: true })
   paymentId!: string
 
@@ -50,6 +54,9 @@ export class OrderEntity {
 
   @Prop()
   paidAt?: Date
+
+  // 由 timestamps 自动维护，此处仅声明类型供查询读取
+  createdAt?: Date
 }
 
 export const OrderSchema = SchemaFactory.createForClass(OrderEntity)
