@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // 方案一（推荐）：一键启动 + 自动附加，支持 --watch 热重启后重新附加
+      "name": "调试 Server（一键）",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm run dev",
+      "cwd": "${workspaceFolder}/packages/server"
+    },
+    {
+      // 方案二：先手动跑 pnpm dev:debug，再用此配置附加到 9229 端口
+      "name": "附加到 Server (9229)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "cwd": "${workspaceFolder}/packages/server",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}
