@@ -6,6 +6,7 @@ import { OrderController } from './order.controller.js'
 import { ProductModule } from '../product/product.module.js'
 import { CardModule } from '../card/card.module.js'
 import { PaymentModule } from '../payment/payment.module.js'
+import { CaptchaModule } from '../captcha/captcha.module.js'
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { PaymentModule } from '../payment/payment.module.js'
     ProductModule,
     CardModule,
     PaymentModule,
+    CaptchaModule,
   ],
   controllers: [OrderController],
   providers: [OrderService],

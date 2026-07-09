@@ -25,6 +25,7 @@ export class OrderController {
   @Post()
   async create(@Body() body: CreateOrderInput): Promise<ApiResponse<CreateOrderResult>> {
     // POST /orders 创建订单：校验、锁库存、发起支付，返回支付二维码
+    this.logger.debug(`订单创建参数 ${JSON.stringify(body,null,2)}`)
     const data = await this.orderService.createOrder(body)
     return { code: 200, message: 'ok', data }
   }

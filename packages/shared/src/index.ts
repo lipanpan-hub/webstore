@@ -34,6 +34,24 @@ export interface PaymentMethodDetail extends PaymentMethod {
   config: Record<string, string>
 }
 
+// 验证码服务商类型
+export type CaptchaProvider = 'aliyun' | 'geetest'
+
+// 验证码配置（面向 CLI/后台，附带服务商配置，含敏感密钥）
+export interface CaptchaSetting {
+  id: string
+  provider: CaptchaProvider
+  config: Record<string, string>
+  enabled: boolean
+  sort: number
+}
+
+// 面向前端的公开验证码配置：用于初始化验证码控件，仅含公开参数；无启用项时接口返回 null
+export interface CaptchaConfigView {
+  provider: CaptchaProvider
+  params: Record<string, string>
+}
+
 // 商品
 export interface Product {
   id: string
@@ -73,6 +91,8 @@ export interface CreateOrderInput {
   email: string
   orderPassword: string
   paymentId: string
+  // 验证码校验参数：由前端验证码控件产生，交服务端向服务商二次校验；未启用验证码时可为空
+  captcha?: Record<string, string>
 }
 
 // 支付交付形态：qrcode 前端渲染二维码扫码 / redirect 浏览器跳转收银台

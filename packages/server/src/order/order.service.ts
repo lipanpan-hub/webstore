@@ -23,6 +23,7 @@ import { CardService } from '../card/card.service.js'
 import { PaymentService } from '../payment/payment.service.js'
 import { PaymentGatewayFactory } from '../payment/gateway/payment-gateway.factory.js'
 import type { PrecreateResult } from '../payment/gateway/payment-gateway.interface.js'
+import { CaptchaService } from '../captcha/captcha.service.js'
 
 // 订单有效期：5 分钟内未支付则失效
 const ORDER_TTL_MS = 5 * 60 * 1000
@@ -43,6 +44,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     private readonly cardService: CardService,
     private readonly paymentService: PaymentService,
     private readonly gatewayFactory: PaymentGatewayFactory,
+    private readonly captchaService: CaptchaService,
     config: ConfigService,
   ) {
     this.paymentNotifyBaseUrl = config.get<string>('PAYMENT_NOTIFY_BASE_URL', 'http://localhost:3000')
@@ -52,6 +54,11 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
   //#region 下单
   async createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
     this.validate(input)
+
+    // 下单前先做验证码校验，未通过直接拒绝（未启用验证码时放行）
+    if (!(await this.captchaService.verify(input.captcha))) {
+      throw new BadRequestException('验证码校验未通过，请重试')
+    }
 
     const product = await this.productService.findByIdWithStock(input.productId)
     if (product.status !== 'on') throw new BadRequestException('商品已下架')

@@ -11,6 +11,8 @@
     "cli:dev": "node --no-warnings --loader ts-node/esm src/cli.ts"
   },
   "dependencies": {
+    "@alicloud/captcha20230305": "1.1.4",
+    "@alicloud/openapi-core": "^1.0.7",
     "@inquirer/prompts": "^8.5.2",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.4",

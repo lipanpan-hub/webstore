@@ -8,6 +8,7 @@ import { ProductModule } from './product/product.module.js'
 import { CardModule } from './card/card.module.js'
 import { CatalogModule } from './catalog/catalog.module.js'
 import { PaymentModule } from './payment/payment.module.js'
+import { CaptchaModule } from './captcha/captcha.module.js'
 import { OrderModule } from './order/order.module.js'
 
 @Module({
@@ -26,6 +27,7 @@ import { OrderModule } from './order/order.module.js'
     CardModule,
     CatalogModule,
     PaymentModule,
+    CaptchaModule,
     OrderModule,
   ],
   controllers: [AppController],

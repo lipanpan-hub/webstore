@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import type {
@@ -10,6 +10,7 @@ import type {
   OrderStatusView,
 } from '@webstore/shared'
 import { API_BASE } from '@/config'
+import { useCaptcha } from '@/composables/useCaptcha'
 
 const route = useRoute()
 const router = useRouter()
@@ -52,15 +53,8 @@ async function loadPayments() {
 }
 //#endregion
 
-//#region 纯前端算术验证码
-const captcha = reactive({ a: 0, b: 0, answer: 0 })
-
-function makeCaptcha() {
-  // 生成两位数加法题，答案存于内存供本地校验，无需后端
-  captcha.a = Math.floor(Math.random() * 10) + 1
-  captcha.b = Math.floor(Math.random() * 10) + 1
-  captcha.answer = captcha.a + captcha.b
-}
+//#region 服务商验证码
+const captcha = useCaptcha()
 //#endregion
 
 //#region 购买表单
@@ -69,7 +63,6 @@ const form = reactive({
   email: '',
   orderPassword: '',
   paymentId: '',
-  captchaInput: '',
 })
 
 const stock = computed(() => product.value?.stock ?? 0)
@@ -83,7 +76,7 @@ function validate(): string {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return '请输入正确的邮箱'
   if (!form.orderPassword.trim()) return '请设置订单密码'
   if (!form.paymentId) return '请选择支付方式'
-  if (Number(form.captchaInput) !== captcha.answer) return '验证码错误'
+  if (!captcha.passed.value) return '请先完成人机验证'
   return ''
 }
 
@@ -91,7 +84,6 @@ async function submit() {
   const msg = validate()
   if (msg) {
     alert(msg)
-    if (msg === '验证码错误') makeCaptcha()
     return
   }
   submitting.value = true
@@ -105,12 +97,15 @@ async function submit() {
         email: form.email,
         orderPassword: form.orderPassword,
         paymentId: form.paymentId,
+        captcha: captcha.token.value ?? undefined,
       }),
     })
     const body: ApiResponse<CreateOrderResult> = await res.json()
     if (body.code !== 200) throw new Error(body.message)
     await openPayment(body.data)
   } catch (e) {
+    // 验证码为一次性令牌，下单失败后重置以便重新验证
+    captcha.reset()
     alert((e as Error).message || '下单失败')
   } finally {
     submitting.value = false
@@ -185,10 +180,13 @@ function closePayment() {
 }
 //#endregion
 
-onMounted(() => {
+onMounted(async () => {
   loadProduct()
   loadPayments()
-  makeCaptcha()
+  await captcha.load()
+  // 待验证码容器与按钮渲染后再初始化控件
+  await nextTick()
+  if (captcha.required.value) await captcha.mount('captcha-element', 'captcha-button')
 })
 
 onUnmounted(stopTimers)
@@ -238,15 +236,21 @@ onUnmounted(stopTimers)
             <option v-for="p in payments" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </label>
-        <label class="field">
-          <span>验证码*</span>
-          <div class="captcha">
-            <input v-model="form.captchaInput" placeholder="请计算结果" />
-            <button type="button" class="captcha-q" @click="makeCaptcha">
-              {{ captcha.a }} + {{ captcha.b }} = ?
-            </button>
-          </div>
-        </label>
+        <div v-if="captcha.required.value" class="field">
+          <span>人机验证*</span>
+          <!-- 阿里云控件渲染容器（弹出式验证码挂载于此） -->
+          <div id="captcha-element"></div>
+          <button
+            v-if="!captcha.passed.value"
+            id="captcha-button"
+            type="button"
+            class="captcha-btn"
+            @click="captcha.trigger()"
+          >
+            点击完成人机验证
+          </button>
+          <p v-else class="captcha-ok">✓ 验证通过</p>
+        </div>
         <div class="total">应付：<b>￥{{ totalPrice }}</b></div>
         <button class="submit" :disabled="stock === 0 || submitting" @click="submit">
           {{ stock === 0 ? '缺货' : submitting ? '提交中...' : '立即购买' }}
@@ -391,24 +395,21 @@ onUnmounted(stopTimers)
   color: var(--text);
 }
 
-.captcha {
-  display: flex;
-  gap: 8px;
-}
-
-.captcha input {
-  flex: 1;
-}
-
-.captcha-q {
-  white-space: nowrap;
-  padding: 0 12px;
+.captcha-btn {
+  width: 100%;
+  padding: 8px 10px;
   border: 1px solid var(--border-input);
   border-radius: 6px;
   background: var(--chip-bg);
   color: var(--text);
   cursor: pointer;
   font-size: 14px;
+}
+
+.captcha-ok {
+  color: var(--success);
+  font-size: 14px;
+  padding: 4px 0;
 }
 
 .total {
