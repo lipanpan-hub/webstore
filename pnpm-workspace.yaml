@@ -1,8 +1,6 @@
 packages:
   - 'packages/*'
 allowBuilds:
-  '@alicloud/openapi-core': true 
+  '@alicloud/openapi-core': true
   esbuild: true
-onlyBuiltDependencies:
-  - esbuild
-
+  unrs-resolver: true
