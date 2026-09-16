@@ -2,8 +2,10 @@
 
 import type {ConfigFile, NamedProfile} from './config-manager.js'
 
-// 单个配置档案: 在通用 NamedProfile 之上扩展 vptool 的工作参数(工作目录 / 下载前缀 / API Token)
+// 单个配置档案: 在通用 NamedProfile 之上扩展 ws-cli 的工作参数(工作目录 / 服务端地址 / API Key)
 export interface Profile extends NamedProfile {
+  apiKey?: string
+  baseUrl?: string
   documentsPath?: string
 }
 
