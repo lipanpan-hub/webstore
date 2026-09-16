@@ -1,7 +1,7 @@
 {
-  "name": "@webstore/ws-cli",
+  "name": "@lppx/ws-cli",
   "description": "a cli for webstore",
-  "version": "0.0.0",
+  "version": "0.1.1",
   "author": "lppx",
   "bin": {
     "wsc": "./bin/run.js"
@@ -54,7 +54,7 @@
   "keywords": [
     "oclif"
   ],
-  "license": "BSL",
+  "license": "BUSL-1.1",
   "main": "dist/index.js",
   "publishConfig": {
     "access": "public"
