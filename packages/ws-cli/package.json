@@ -77,8 +77,23 @@
     },
     "topicSeparator": " ",
     "topics": {
-      "hello": {
-        "description": "Say hello to the world and others"
+      "category": {
+        "description": "分类管理"
+      },
+      "product": {
+        "description": "商品管理"
+      },
+      "card": {
+        "description": "卡密库存管理"
+      },
+      "payment": {
+        "description": "支付方式管理"
+      },
+      "captcha": {
+        "description": "验证码配置管理"
+      },
+      "order": {
+        "description": "订单查询"
       }
     }
   },
