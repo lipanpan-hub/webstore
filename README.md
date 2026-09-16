@@ -2,12 +2,16 @@
 
 基于 NestJS + Vue3 + MongoDB 的自动发卡站，前后端分离。核心链路：**游客下单 → 支付回调 → 自动发货（卡密）→ 订单查询**。
 
-商品、分类、卡密库存、支付方式、验证码配置等站长操作全部通过 CLI 完成，站点本身不含后台管理界面。
+商品、分类、卡密库存、支付方式、验证码配置等站长操作全部通过命令行完成，站点本身不含图形化后台。管理有两条链路：
+
+- **本机 CLI**：后端内置的 nest-commander 命令行，直连 MongoDB，跑在服务器本机，负责全部站长操作与 API Key 签发。
+- **远程客户端**：后端另外暴露一套 `/admin/*` HTTP API（API Key + 细粒度权限鉴权），配合独立分发的命令行工具 `@lppx/ws-cli`（`wsc`）远程管理站点。
 
 ## 技术栈
 
-- 后端：NestJS 11（ESM）、Mongoose 9、nest-commander（CLI）
+- 后端：NestJS 11（ESM）、Mongoose 9、nest-commander（内置 CLI）
 - 前端：Vue 3.5 + Vue Router 4 + Vite 6
+- 远程 CLI：`@lppx/ws-cli`，基于 oclif 4，可打包为跨平台可执行文件
 - 共享层：`@webstore/shared` 集中定义前后端接口契约类型
 - 包管理：pnpm workspace（monorepo）
 
@@ -19,12 +23,13 @@ webstore/
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
 └── packages/
-    ├── server/             # NestJS 后端 + CLI
+    ├── server/             # NestJS 后端 + 内置 CLI
     ├── web/                # Vue 前端
-    └── shared/             # 共享类型
+    ├── shared/             # 共享类型
+    └── ws-cli/             # 远程管理命令行客户端（@lppx/ws-cli，oclif）
 ```
 
-后端按领域分模块：`catalog`（首页目录）、`category`、`product`、`card`（卡密库存）、`order`、`payment`、`captcha`，`commands/` 存放 CLI 命令，与 HTTP 层共享同一批 Service。
+后端按领域分模块：`catalog`（首页目录）、`category`、`product`、`card`（卡密库存）、`order`、`payment`、`captcha`，`admin`（管理侧 HTTP API）、`apikey`（API Key 鉴权与权限），`commands/` 存放内置 CLI 命令，与 HTTP 层共享同一批 Service。
 
 ## 快速开始
 
@@ -41,7 +46,7 @@ pnpm dev            # 同时启动后端(3000) 与前端(5174)
 生产构建与运行：
 
 ```bash
-pnpm build:all      # shared → server → web，顺序不可调换
+pnpm build:all      # shared → server → web → ws-cli，shared 必须最先构建
 node packages/server/dist/main.js
 ```
 
@@ -58,9 +63,9 @@ node packages/server/dist/main.js
 
 - `VITE_API_BASE` 后端 API 地址
 
-## 站长 CLI
+## 本机 CLI（直连数据库）
 
-开发态直接跑 TS，生产态跑构建产物：
+后端内置的 nest-commander 命令行，直接连接 MongoDB，需跑在能访问数据库的服务器本机。开发态直接跑 TS，生产态跑构建产物：
 
 ```bash
 pnpm cli <命令>          # ts-node，开发用
@@ -74,6 +79,7 @@ pnpm cli:prod <命令>     # dist 产物，部署用
 - `card` — `add` 导入卡密、`stock` 查库存、`del` 删单条、`clear` 批量清理
 - `payment` — `add` / `update` / `remove` / `list` 支付方式及服务商配置
 - `captcha` — `add` / `update` / `remove` / `list` 验证码配置
+- `apikey` — `add` 签发（明文仅显示一次）、`list`、`update` 改权限、`enable` / `disable` 启停、`remove` 删除
 
 典型初始化顺序：
 
@@ -84,6 +90,27 @@ pnpm cli card add
 pnpm cli product shelf
 pnpm cli payment add
 ```
+
+API Key 只能通过本机 CLI 的 `apikey` 命令签发，无法经远程 API 创建，以此保证权限源头始终在服务器本机。
+
+## 远程管理（admin API + ws-cli）
+
+后端在 `/admin/*` 下暴露一套管理 HTTP API，全部经 `ApiKeyGuard` 鉴权，并按 `<资源>:<动作>`（如 `product:shelf`）做细粒度权限校验。API Key 通过 `Authorization: Bearer <key>` 或 `X-API-Key` 请求头传递，权限不足返回 403。
+
+`@lppx/ws-cli`（命令 `wsc`）是配套的远程命令行客户端，基于 oclif，通过本地配置档案（`baseUrl` + `apiKey`）调用上述 admin API，命令组与本机 CLI 基本对应：
+
+```bash
+wsc config set             # 配置服务端地址与 API Key（多档案）
+wsc config show            # 查看当前配置
+wsc category add|list
+wsc product add|list|shelf|detail
+wsc card add|list|stock|del|clear
+wsc payment add|list|update|remove
+wsc captcha add|list|update|remove
+wsc order list|get         # 订单查询（只读）
+```
+
+开发态可用 `pnpm dev:wsc` 跑源码调试；`pnpm build:wsc` 产出 `dist`，也可用包内 `oclif pack` 脚本打成各平台安装包。
 
 ## HTTP API
 
@@ -100,6 +127,15 @@ pnpm cli payment add
 - `ALL /orders/notify/:paymentId` — 支付网关回调入口，路径带支付方式 ID 以选择对应网关解析
 
 订单确认采取「回调优先、轮询兜底」：回调解析出订单号后主动向网关查询真实状态，确认成功才发货；同时有定时清扫任务处理超时订单并释放锁定库存。
+
+管理侧路由挂在 `/admin/*` 下，均需 API Key 且校验对应权限，供 `ws-cli` 等远程客户端调用：
+
+- `GET|POST /admin/categories` — 分类查询 / 新建（`category:read` / `category:create`）
+- `/admin/products` — 商品增查、上下架、编辑详情（`product:*`）
+- `/admin/cards` — 卡密导入、库存查询、删除（`card:*`）
+- `/admin/payments` — 支付方式增删改查（含配置，`payment:*`）
+- `/admin/captchas` — 验证码配置增删改查（`captcha:*`）
+- `/admin/orders` — 订单列表与详情（`order:read`）
 
 ## 支付与验证码扩展
 
