@@ -132,3 +132,38 @@ export interface OrderRecordView {
   createdAt: number
   cards?: string[]
 }
+
+// API Key 权限范围：形如 <资源>:<动作>，支持 <资源>:* 与 * 通配
+export type ApiKeyScope = string
+
+// API Key 信息视图（面向 CLI 展示，不含明文与哈希）
+export interface ApiKeyInfo {
+  id: string
+  name: string
+  // key 前若干位明文，仅供辨识是哪一把 key
+  prefix: string
+  scopes: ApiKeyScope[]
+  enabled: boolean
+  createdAt: number
+  lastUsedAt?: number
+}
+
+// 新建 API Key 的结果：明文 key 仅在创建时返回这一次，之后无法找回
+export interface ApiKeyCreated extends ApiKeyInfo {
+  key: string
+}
+
+// 管理侧订单视图：面向站长的订单概要，剔除订单密码与访问令牌等敏感凭证
+export interface AdminOrderView {
+  orderId: string
+  productId: string
+  productName: string
+  quantity: number
+  unitPrice: number
+  totalAmount: string
+  email: string
+  status: OrderStatus
+  provider: string
+  createdAt: number
+  paidAt?: number
+}

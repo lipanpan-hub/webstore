@@ -1,4 +1,4 @@
-import { input, number, confirm, select, search } from '@inquirer/prompts'
+import { input, number, confirm, select, checkbox, search } from '@inquirer/prompts'
 import Fuse from 'fuse.js'
 
 // 外观模式：封装 @inquirer/prompts + fuse.js 的交互细节，命令层只依赖下方简洁接口
@@ -51,6 +51,20 @@ export async function askSelect<T>(
   options: { title: string; value: T }[],
 ): Promise<T> {
   return run(select({ message, choices: options.map((o) => ({ name: o.title, value: o.value })) }))
+}
+//#endregion
+
+//#region 多选
+export async function askMultiSelect<T>(
+  message: string,
+  options: { title: string; value: T; checked?: boolean }[],
+): Promise<T[]> {
+  return run(
+    checkbox({
+      message,
+      choices: options.map((o) => ({ name: o.title, value: o.value, checked: o.checked })),
+    }),
+  )
 }
 //#endregion
 

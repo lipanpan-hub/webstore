@@ -18,5 +18,6 @@ import { CaptchaModule } from '../captcha/captcha.module.js'
   ],
   controllers: [OrderController],
   providers: [OrderService],
+  exports: [OrderService],
 })
 export class OrderModule {}

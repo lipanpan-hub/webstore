@@ -11,8 +11,10 @@ import { InjectModel } from '@nestjs/mongoose'
 import { Model, Types } from 'mongoose'
 import { createHash, randomBytes } from 'node:crypto'
 import type {
+  AdminOrderView,
   CreateOrderInput,
   CreateOrderResult,
+  OrderStatus,
   OrderStatusView,
   OrderQueryInput,
   OrderRecordView,
@@ -228,6 +230,35 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
   }
   //#endregion
 
+  //#region 管理侧查询：供带 order:read 权限的 API Key 查看订单
+  async listForAdmin(): Promise<AdminOrderView[]> {
+    const docs = await this.orderModel.find().sort({ createdAt: -1 }).lean()
+    return docs.map((d) => this.toAdminView(d))
+  }
+
+  async findByIdForAdmin(id: string): Promise<AdminOrderView> {
+    const doc = await this.orderModel.findById(id).lean()
+    if (!doc) throw new NotFoundException('订单不存在')
+    return this.toAdminView(doc)
+  }
+
+  private toAdminView(d: LeanOrder): AdminOrderView {
+    return {
+      orderId: String(d._id),
+      productId: d.productId,
+      productName: d.productName,
+      quantity: d.quantity,
+      unitPrice: d.unitPrice,
+      totalAmount: d.totalAmount,
+      email: d.email,
+      status: d.status,
+      provider: d.provider,
+      createdAt: d.createdAt?.getTime() ?? 0,
+      paidAt: d.paidAt?.getTime(),
+    }
+  }
+  //#endregion
+
   //#region 超时兜底：定时释放无人轮询的过期订单
   onModuleInit(): void {
     this.sweepTimer = setInterval(() => {
@@ -251,4 +282,19 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
   private hashPassword(raw: string): string {
     return createHash('sha256').update(raw).digest('hex')
   }
+}
+
+// 管理查询用的精简订单结构（lean 读取）
+interface LeanOrder {
+  _id: unknown
+  productId: string
+  productName: string
+  unitPrice: number
+  quantity: number
+  totalAmount: string
+  email: string
+  status: OrderStatus
+  provider: string
+  createdAt?: Date
+  paidAt?: Date
 }

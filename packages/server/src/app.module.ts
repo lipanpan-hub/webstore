@@ -10,6 +10,7 @@ import { CatalogModule } from './catalog/catalog.module.js'
 import { PaymentModule } from './payment/payment.module.js'
 import { CaptchaModule } from './captcha/captcha.module.js'
 import { OrderModule } from './order/order.module.js'
+import { AdminModule } from './admin/admin.module.js'
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { OrderModule } from './order/order.module.js'
     PaymentModule,
     CaptchaModule,
     OrderModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
