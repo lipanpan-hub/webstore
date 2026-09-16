@@ -2,7 +2,7 @@ import { Command, CommandRunner, SubCommand } from 'nest-commander'
 import type { ApiKeyInfo } from '@webstore/shared'
 import { ApiKeyService } from '../apikey/api-key.service.js'
 import { ADMIN_SCOPES, WILDCARD_ALL } from '../apikey/api-key.scope.js'
-import { askText, askSelect, askMultiSelect, askConfirm, pickFuzzy } from './interactive.js'
+import { askText, askMultiSelect, askConfirm, pickFuzzy } from './interactive.js'
 
 //#region 公共工具
 // 将注册表展开为多选项：全局通配 → 各资源通配 → 各具体动作；checked 用于更新时回填当前权限
@@ -81,7 +81,7 @@ class ApiKeyListCommand extends CommandRunner {
   }
 }
 
-@SubCommand({ name: 'update', description: '修改 API Key 的权限或启停状态' })
+@SubCommand({ name: 'update', description: '重新设置 API Key 的权限' })
 class ApiKeyUpdateCommand extends CommandRunner {
   constructor(private readonly apiKeyService: ApiKeyService) {
     super()
@@ -89,27 +89,42 @@ class ApiKeyUpdateCommand extends CommandRunner {
 
   async run(): Promise<void> {
     const target = await pickApiKey(this.apiKeyService)
-    const action = await askSelect<'scopes' | 'enable' | 'disable'>('要修改什么', [
-      { title: '重新设置权限', value: 'scopes' },
-      { title: '启用', value: 'enable' },
-      { title: '停用', value: 'disable' },
-    ])
+    const scopes = await askMultiSelect(
+      '勾选授予的权限（空格选中，回车确认）',
+      buildScopeChoices(target.scopes),
+    )
+    if (scopes.length === 0) throw new Error('至少需要勾选一项权限')
 
-    // 依选择分派：改权限走多选回填，启停直接切换 enabled
-    if (action === 'scopes') {
-      const scopes = await askMultiSelect(
-        '勾选授予的权限（空格选中，回车确认）',
-        buildScopeChoices(target.scopes),
-      )
-      if (scopes.length === 0) throw new Error('至少需要勾选一项权限')
-      const updated = await this.apiKeyService.update(target.id, { scopes })
-      console.log('已更新权限:')
-      printApiKey(updated)
-      return
-    }
+    const updated = await this.apiKeyService.update(target.id, { scopes })
+    console.log('已更新权限:')
+    printApiKey(updated)
+  }
+}
 
-    const updated = await this.apiKeyService.update(target.id, { enabled: action === 'enable' })
-    console.log(`已${action === 'enable' ? '启用' : '停用'} API Key:`)
+@SubCommand({ name: 'enable', description: '启用 API Key' })
+class ApiKeyEnableCommand extends CommandRunner {
+  constructor(private readonly apiKeyService: ApiKeyService) {
+    super()
+  }
+
+  async run(): Promise<void> {
+    const target = await pickApiKey(this.apiKeyService)
+    const updated = await this.apiKeyService.update(target.id, { enabled: true })
+    console.log('已启用 API Key:')
+    printApiKey(updated)
+  }
+}
+
+@SubCommand({ name: 'disable', description: '停用 API Key' })
+class ApiKeyDisableCommand extends CommandRunner {
+  constructor(private readonly apiKeyService: ApiKeyService) {
+    super()
+  }
+
+  async run(): Promise<void> {
+    const target = await pickApiKey(this.apiKeyService)
+    const updated = await this.apiKeyService.update(target.id, { enabled: false })
+    console.log('已停用 API Key:')
     printApiKey(updated)
   }
 }
@@ -132,11 +147,18 @@ class ApiKeyRemoveCommand extends CommandRunner {
 @Command({
   name: 'apikey',
   description: 'API Key 管理',
-  subCommands: [ApiKeyAddCommand, ApiKeyListCommand, ApiKeyUpdateCommand, ApiKeyRemoveCommand],
+  subCommands: [
+    ApiKeyAddCommand,
+    ApiKeyListCommand,
+    ApiKeyUpdateCommand,
+    ApiKeyEnableCommand,
+    ApiKeyDisableCommand,
+    ApiKeyRemoveCommand,
+  ],
 })
 export class ApiKeyCommand extends CommandRunner {
   async run(): Promise<void> {
-    console.log('用法: apikey <add|list|update|remove>')
+    console.log('用法: apikey <add|list|update|enable|disable|remove>')
   }
 }
 
@@ -145,5 +167,7 @@ export const apiKeyCommandProviders = [
   ApiKeyAddCommand,
   ApiKeyListCommand,
   ApiKeyUpdateCommand,
+  ApiKeyEnableCommand,
+  ApiKeyDisableCommand,
   ApiKeyRemoveCommand,
 ]
