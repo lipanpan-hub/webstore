@@ -1,3 +1,5 @@
+import {createHash, createHmac, randomUUID} from 'node:crypto'
+
 import type {
   AdminOrderView,
   ApiResponse,
@@ -53,13 +55,14 @@ export interface UpdateCaptchaInput {
 /**
  * admin HTTP API 客户端(门面模式)。
  *
- * 集中封装 baseUrl 拼接、X-API-Key 鉴权头、统一 ApiResponse 解包与错误转换,
+ * 集中封装 baseUrl 拼接、keyId/secret 的 HMAC 签名鉴权头、统一 ApiResponse 解包与错误转换,
  * 命令层只面对 listProducts / createCategory 等业务语义方法, 不感知 HTTP 细节。
  */
 export class AdminApiClient {
   constructor(
     private readonly baseUrl: string,
-    private readonly apiKey: string,
+    private readonly keyId: string,
+    private readonly secret: string,
   ) {}
 
   // #region 分类
@@ -174,15 +177,37 @@ export class AdminApiClient {
   }
   // #endregion
 
-  // 统一请求出口: 拼接 URL、携带鉴权头、解包 ApiResponse, 非 2xx 时抛出带服务端信息的错误
+  // #region HMAC 签名
+  // 按服务端 HMAC 签名协议组装鉴权头; 协议权威定义见 server 的 api-key.signature.ts,
+  // 修改两端时必须同步, 否则验签失败
+  private buildSignedHeaders(method: string, path: string, rawBody: string): Record<string, string> {
+    const timestamp = Math.floor(Date.now() / 1000).toString()
+    const nonce = randomUUID()
+    // 先对实际发送的原始请求体字节求 sha256, 再按固定顺序拼接待签名字符串
+    const bodyHash = createHash('sha256').update(rawBody).digest('hex')
+    const canonicalString = [method.toUpperCase(), path, timestamp, nonce, bodyHash].join('\n')
+    const signature = createHmac('sha256', this.secret).update(canonicalString).digest('hex')
+
+    return {
+      'x-api-key-id': this.keyId,
+      'x-api-timestamp': timestamp,
+      'x-api-nonce': nonce,
+      'x-api-signature': signature,
+    }
+  }
+  // #endregion
+
+  // 统一请求出口: 拼接 URL、携带签名鉴权头、解包 ApiResponse, 非 2xx 时抛出带服务端信息的错误
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.baseUrl.replace(/\/+$/, '')}${path}`
+    // 无体请求按空串处理, 与服务端 rawBody ?? '' 的约定保持一致
+    const rawBody = (body === undefined) ? '' : JSON.stringify(body)
     let response: Response
     try {
       response = await fetch(url, {
         method,
-        headers: {'content-type': 'application/json', 'x-api-key': this.apiKey},
-        body: body === undefined ? undefined : JSON.stringify(body),
+        headers: {'content-type': 'application/json', ...this.buildSignedHeaders(method, path, rawBody)},
+        body: (rawBody === '') ? undefined : rawBody,
       })
     } catch (error) {
       // 网络层失败(DNS / 拒连 / 超时), 附上目标地址便于排查
