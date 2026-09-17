@@ -8,13 +8,14 @@ export class ApiKeyEntity {
   @Prop({ required: true })
   name!: string
 
-  // 仅存 key 的 sha256 哈希，明文不落库；即便库泄露也无法还原 key
+  // 公开标识，客户端经 X-Api-Key-Id 头声明；服务端据此定位对应 secret
   @Prop({ required: true, unique: true })
-  keyHash!: string
+  keyId!: string
 
-  // key 前若干位明文，仅供 list 时辨识是哪一把
+  // HMAC 签名密钥的 AES-256-GCM 密文；明文只在创建时返回一次，不落库
+  // 即便库泄露，缺少 .env 中的主密钥也无法解出 secret
   @Prop({ required: true })
-  prefix!: string
+  secretEnc!: string
 
   // 绑定的角色 id（权限来源），verify 时解析成有效 scope 并集
   @Prop({ type: [String], default: [] })

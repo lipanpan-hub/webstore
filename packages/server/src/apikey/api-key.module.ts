@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose'
 import { ApiKeyEntity, ApiKeySchema } from './api-key.schema.js'
 import { ApiKeyService } from './api-key.service.js'
 import { ApiKeyGuard } from './api-key.guard.js'
+import { SecretCipher } from './api-key.cipher.js'
 import { RoleModule } from '../role/role.module.js'
 
 @Module({
@@ -11,8 +12,9 @@ import { RoleModule } from '../role/role.module.js'
     MongooseModule.forFeature([{ name: ApiKeyEntity.name, schema: ApiKeySchema }]),
     RoleModule,
   ],
-  // 导出 Service 供 CLI 与 Guard 复用，导出 Guard 供 admin 各 controller @UseGuards 解析
-  providers: [ApiKeyService, ApiKeyGuard],
+  // SecretCipher 封装 secret 加解密；导出 Service 供 CLI 与 Guard 复用，
+  // 导出 Guard 供 admin 各 controller @UseGuards 解析
+  providers: [ApiKeyService, ApiKeyGuard, SecretCipher],
   exports: [ApiKeyService, ApiKeyGuard],
 })
 export class ApiKeyModule {}

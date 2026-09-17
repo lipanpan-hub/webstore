@@ -151,12 +151,12 @@ export interface RoleRef {
   name: string
 }
 
-// API Key 信息视图（面向 CLI 展示，不含明文与哈希）
+// API Key 信息视图（面向 CLI 展示，不含 secret 与其密文）
 export interface ApiKeyInfo {
   id: string
   name: string
-  // key 前若干位明文，仅供辨识是哪一把 key
-  prefix: string
+  // 公开标识，客户端签名时经 X-Api-Key-Id 头声明用哪把 key，可安全展示
+  keyId: string
   // 绑定的角色（权限来源）
   roles: RoleRef[]
   // 由所绑定角色解析出的有效权限并集，供 Guard 校验与展示
@@ -166,9 +166,9 @@ export interface ApiKeyInfo {
   lastUsedAt?: number
 }
 
-// 新建 API Key 的结果：明文 key 仅在创建时返回这一次，之后无法找回
+// 新建 API Key 的结果：签名密钥 secret 仅在创建时返回这一次，之后无法找回
 export interface ApiKeyCreated extends ApiKeyInfo {
-  key: string
+  secret: string
 }
 
 // 管理侧订单视图：面向站长的订单概要，剔除订单密码与访问令牌等敏感凭证

@@ -23,7 +23,7 @@ async function pickApiKey(service: ApiKeyService): Promise<ApiKeyInfo> {
   return pickFuzzy(
     '选择 API Key',
     list,
-    (k) => `${k.name}  ${k.prefix}...  [${k.enabled ? '启用' : '停用'}]  (${k.id})`,
+    (k) => `${k.name}  ${k.keyId}  [${k.enabled ? '启用' : '停用'}]  (${k.id})`,
   )
 }
 
@@ -32,7 +32,7 @@ function printApiKey(k: ApiKeyInfo): void {
   const lastUsed = k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : '从未使用'
   const roleNames = k.roles.length > 0 ? k.roles.map((r) => r.name).join(', ') : '（无）'
   const scopes = k.scopes.length > 0 ? k.scopes.join(', ') : '（无有效权限）'
-  console.log(`${k.id}  ${k.name}  ${k.prefix}...  [${k.enabled ? '启用' : '停用'}]`)
+  console.log(`${k.id}  ${k.name}  ${k.keyId}  [${k.enabled ? '启用' : '停用'}]`)
   console.log(`    角色: ${roleNames}`)
   console.log(`    有效权限: ${scopes}`)
   console.log(`    创建: ${created}    最近使用: ${lastUsed}`)
@@ -56,8 +56,9 @@ class ApiKeyAddCommand extends CommandRunner {
     if (roleIds.length === 0) throw new Error('至少需要绑定一个角色')
 
     const created = await this.apiKeyService.create(name, roleIds)
-    console.log('已创建 API Key，请立即保存以下明文，它只会显示这一次：')
-    console.log(`\n    ${created.key}\n`)
+    console.log('已创建 API Key。keyId 可公开，secret 只显示这一次，请立即离线保存：')
+    console.log(`\n    keyId : ${created.keyId}`)
+    console.log(`    secret: ${created.secret}\n`)
     printApiKey(created)
   }
 }
@@ -140,7 +141,7 @@ class ApiKeyRemoveCommand extends CommandRunner {
 
   async run(): Promise<void> {
     const target = await pickApiKey(this.apiKeyService)
-    if (!(await askConfirm(`确认删除 API Key ${target.name}（${target.prefix}...）?`))) return
+    if (!(await askConfirm(`确认删除 API Key ${target.name}（${target.keyId}）?`))) return
 
     await this.apiKeyService.remove(target.id)
     console.log(`已删除 API Key: ${target.id}`)
