@@ -1,31 +1,20 @@
 import { Command, CommandRunner, SubCommand } from 'nest-commander'
-import type { ApiKeyInfo } from '@webstore/shared'
+import type { ApiKeyInfo, Role } from '@webstore/shared'
 import { ApiKeyService } from '../apikey/api-key.service.js'
-import { ADMIN_SCOPES, WILDCARD_ALL } from '../apikey/api-key.scope.js'
+import { RoleService } from '../role/role.service.js'
 import { askText, askMultiSelect, askConfirm, pickFuzzy } from './interactive.js'
 
 //#region 公共工具
-// 将注册表展开为多选项：全局通配 → 各资源通配 → 各具体动作；checked 用于更新时回填当前权限
-function buildScopeChoices(current: string[] = []): { title: string; value: string; checked?: boolean }[] {
-  const options: { title: string; value: string; checked?: boolean }[] = [
-    { title: '*  (全部权限，超级 key)', value: WILDCARD_ALL, checked: current.includes(WILDCARD_ALL) },
-  ]
-  for (const res of ADMIN_SCOPES) {
-    const wildcard = `${res.resource}:*`
-    options.push({
-      title: `${res.label} - 全部 (${wildcard})`,
-      value: wildcard,
-      checked: current.includes(wildcard),
-    })
-    for (const action of res.actions) {
-      options.push({
-        title: `  ${res.label} - ${action.label} (${action.scope})`,
-        value: action.scope,
-        checked: current.includes(action.scope),
-      })
-    }
-  }
-  return options
+// 将角色列表展开为多选项；checked 用于更新时回填当前已绑定角色
+function buildRoleChoices(
+  roles: Role[],
+  current: string[] = [],
+): { title: string; value: string; checked?: boolean }[] {
+  return roles.map((r) => ({
+    title: `${r.name}${r.description ? ` - ${r.description}` : ''}  (${r.scopes.join(', ')})`,
+    value: r.id,
+    checked: current.includes(r.id),
+  }))
 }
 
 async function pickApiKey(service: ApiKeyService): Promise<ApiKeyInfo> {
@@ -41,24 +30,32 @@ async function pickApiKey(service: ApiKeyService): Promise<ApiKeyInfo> {
 function printApiKey(k: ApiKeyInfo): void {
   const created = k.createdAt ? new Date(k.createdAt).toLocaleString() : '-'
   const lastUsed = k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : '从未使用'
+  const roleNames = k.roles.length > 0 ? k.roles.map((r) => r.name).join(', ') : '（无）'
+  const scopes = k.scopes.length > 0 ? k.scopes.join(', ') : '（无有效权限）'
   console.log(`${k.id}  ${k.name}  ${k.prefix}...  [${k.enabled ? '启用' : '停用'}]`)
-  console.log(`    权限: ${k.scopes.join(', ')}`)
+  console.log(`    角色: ${roleNames}`)
+  console.log(`    有效权限: ${scopes}`)
   console.log(`    创建: ${created}    最近使用: ${lastUsed}`)
 }
 //#endregion
 
-@SubCommand({ name: 'add', description: '新建 API Key 并勾选权限（明文仅显示一次）' })
+@SubCommand({ name: 'add', description: '新建 API Key 并绑定角色（明文仅显示一次）' })
 class ApiKeyAddCommand extends CommandRunner {
-  constructor(private readonly apiKeyService: ApiKeyService) {
+  constructor(
+    private readonly apiKeyService: ApiKeyService,
+    private readonly roleService: RoleService,
+  ) {
     super()
   }
 
   async run(): Promise<void> {
     const name = await askText('备注名称')
-    const scopes = await askMultiSelect('勾选授予的权限（空格选中，回车确认）', buildScopeChoices())
-    if (scopes.length === 0) throw new Error('至少需要勾选一项权限')
+    const roles = await this.roleService.findAll()
+    if (roles.length === 0) throw new Error('暂无角色，请先执行 role add')
+    const roleIds = await askMultiSelect('绑定角色（空格选中，回车确认）', buildRoleChoices(roles))
+    if (roleIds.length === 0) throw new Error('至少需要绑定一个角色')
 
-    const created = await this.apiKeyService.create(name, scopes)
+    const created = await this.apiKeyService.create(name, roleIds)
     console.log('已创建 API Key，请立即保存以下明文，它只会显示这一次：')
     console.log(`\n    ${created.key}\n`)
     printApiKey(created)
@@ -81,22 +78,28 @@ class ApiKeyListCommand extends CommandRunner {
   }
 }
 
-@SubCommand({ name: 'update', description: '重新设置 API Key 的权限' })
+@SubCommand({ name: 'update', description: '重新设置 API Key 绑定的角色' })
 class ApiKeyUpdateCommand extends CommandRunner {
-  constructor(private readonly apiKeyService: ApiKeyService) {
+  constructor(
+    private readonly apiKeyService: ApiKeyService,
+    private readonly roleService: RoleService,
+  ) {
     super()
   }
 
   async run(): Promise<void> {
     const target = await pickApiKey(this.apiKeyService)
-    const scopes = await askMultiSelect(
-      '勾选授予的权限（空格选中，回车确认）',
-      buildScopeChoices(target.scopes),
+    const roles = await this.roleService.findAll()
+    if (roles.length === 0) throw new Error('暂无角色，请先执行 role add')
+    const currentIds = target.roles.map((r) => r.id)
+    const roleIds = await askMultiSelect(
+      '绑定角色（空格选中，回车确认）',
+      buildRoleChoices(roles, currentIds),
     )
-    if (scopes.length === 0) throw new Error('至少需要勾选一项权限')
+    if (roleIds.length === 0) throw new Error('至少需要绑定一个角色')
 
-    const updated = await this.apiKeyService.update(target.id, { scopes })
-    console.log('已更新权限:')
+    const updated = await this.apiKeyService.update(target.id, { roleIds })
+    console.log('已更新绑定角色:')
     printApiKey(updated)
   }
 }

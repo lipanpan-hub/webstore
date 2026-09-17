@@ -136,12 +136,30 @@ export interface OrderRecordView {
 // API Key 权限范围：形如 <资源>:<动作>，支持 <资源>:* 与 * 通配
 export type ApiKeyScope = string
 
+// 角色：一组 scope 的命名聚合，作为 RBAC 中主体与权限之间的间接层
+export interface Role {
+  id: string
+  name: string
+  description?: string
+  scopes: ApiKeyScope[]
+  createdAt: number
+}
+
+// 角色引用：仅携带辨识所需的最小字段，供 API Key 视图展示其绑定角色
+export interface RoleRef {
+  id: string
+  name: string
+}
+
 // API Key 信息视图（面向 CLI 展示，不含明文与哈希）
 export interface ApiKeyInfo {
   id: string
   name: string
   // key 前若干位明文，仅供辨识是哪一把 key
   prefix: string
+  // 绑定的角色（权限来源）
+  roles: RoleRef[]
+  // 由所绑定角色解析出的有效权限并集，供 Guard 校验与展示
   scopes: ApiKeyScope[]
   enabled: boolean
   createdAt: number

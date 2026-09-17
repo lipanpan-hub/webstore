@@ -16,8 +16,9 @@ export class ApiKeyEntity {
   @Prop({ required: true })
   prefix!: string
 
+  // 绑定的角色 id（权限来源），verify 时解析成有效 scope 并集
   @Prop({ type: [String], default: [] })
-  scopes!: string[]
+  roleIds!: string[]
 
   @Prop({ default: true })
   enabled!: boolean
