@@ -48,6 +48,7 @@
   "files": [
     "./bin",
     "./dist",
+    "./skills",
     "./oclif.manifest.json"
   ],
   "homepage": "https://github.com/lipanpan-hub/webstore",
