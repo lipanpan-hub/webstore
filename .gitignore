@@ -1,6 +1,8 @@
 node_modules
 dist
 .env
+# httpyac 的变量文件只含本地地址，需随仓库共享
+!packages/server/http/.env
 *.log
 .DS_Store
 .vite

@@ -1,0 +1,29 @@
+# 认证接口测试：注册 -> 登录 -> 获取当前用户 -> 错误密码
+# 后端默认 http://localhost:3000，无全局前缀
+# 响应统一为 ApiResponse<T>：{ code, message, data }
+# 注意：NestJS 的 POST 默认返回 HTTP 201，业务是否成功以 body.code 为准
+# host 变量已抽到同目录 .env，httpyac 会自动加载
+
+# 生成动态账号，保证脚本可重复执行（避免用户名已存在）
+{{
+  const suffix = Date.now()
+  exports.username = `lipanpan`
+  exports.password = 'lipanpan123'
+}}
+
+### 用户登录
+# @name login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+
+### 使用登录 token 获取当前用户信息（验证 token 有效）
+# @ref login
+GET {{host}}/auth/me
+Authorization: Bearer {{login.data.token}}
+

@@ -1,0 +1,30 @@
+
+
+# 生成动态账号，保证脚本可重复执行（避免用户名已存在）
+{{
+  const suffix = Date.now()
+  exports.username = `test_user_${suffix}`
+  exports.password = 'Test1234'
+}}
+
+### 用户注册（注册成功后自动登录并返回 token）
+# @name register
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+
+### 用户登录（复用注册账号）
+# @ref register
+# @name login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
