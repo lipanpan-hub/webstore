@@ -1,7 +1,17 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
+import { useAuth } from '@/composables/useAuth'
 
 const { theme, toggle } = useTheme()
+const { isLoggedIn, user, logout } = useAuth()
+const router = useRouter()
+
+// 退出登录后回到首页
+function handleLogout() {
+  logout()
+  router.push('/')
+}
 </script>
 
 <template>
@@ -12,13 +22,24 @@ const { theme, toggle } = useTheme()
         <router-link to="/">首页</router-link>
         <router-link to="/query">订单查询</router-link>
       </nav>
-      <button
-        class="theme-toggle"
-        :title="theme === 'light' ? '切换到暗色' : '切换到亮色'"
-        @click="toggle"
-      >
-        {{ theme === 'light' ? '🌙 暗色' : '☀️ 亮色' }}
-      </button>
+      <div class="header-right">
+        <button
+          class="theme-toggle"
+          :title="theme === 'light' ? '切换到暗色' : '切换到亮色'"
+          @click="toggle"
+        >
+          {{ theme === 'light' ? '🌙 暗色' : '☀️ 亮色' }}
+        </button>
+
+        <template v-if="isLoggedIn">
+          <router-link class="auth-btn" to="/home">{{ user?.username }} · 后台</router-link>
+          <button class="auth-btn" @click="handleLogout">退出</button>
+        </template>
+        <template v-else>
+          <router-link class="auth-btn" to="/login">登录</router-link>
+          <router-link class="auth-btn primary" to="/register">注册</router-link>
+        </template>
+      </div>
     </header>
     <main class="web-main">
       <router-view />
@@ -103,8 +124,14 @@ body {
   opacity: 1;
 }
 
-.theme-toggle {
+.header-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-toggle {
   padding: 6px 12px;
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 6px;
@@ -116,6 +143,28 @@ body {
 
 .theme-toggle:hover {
   background: rgba(255, 255, 255, 0.25);
+}
+
+.auth-btn {
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--header-text);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.4;
+}
+
+.auth-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.auth-btn.primary {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--primary);
+  border-color: transparent;
 }
 
 .web-main {

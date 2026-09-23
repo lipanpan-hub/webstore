@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -23,7 +24,32 @@ const router = createRouter({
       name: 'order-query',
       component: () => import('@/views/OrderQuery.vue'),
     },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/Login.vue'),
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/Register.vue'),
+    },
+    {
+      path: '/home',
+      name: 'user-home',
+      component: () => import('@/views/UserHome.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
+})
+
+// 全局前置守卫：受保护路由未登录时跳转登录页
+router.beforeEach((to) => {
+  const { isLoggedIn } = useAuth()
+  if (to.meta.requiresAuth && !isLoggedIn.value) {
+    return { name: 'login' }
+  }
+  return true
 })
 
 export default router
