@@ -10,6 +10,9 @@ import { CatalogModule } from './catalog/catalog.module.js'
 import { PaymentModule } from './payment/payment.module.js'
 import { CaptchaModule } from './captcha/captcha.module.js'
 import { OrderModule } from './order/order.module.js'
+import { RoleModule } from './role/role.module.js'
+import { UserModule } from './user/user.module.js'
+import { AuthModule } from './auth/auth.module.js'
 
 @Module({
   imports: [
@@ -29,6 +32,9 @@ import { OrderModule } from './order/order.module.js'
     PaymentModule,
     CaptchaModule,
     OrderModule,
+    RoleModule,
+    UserModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
