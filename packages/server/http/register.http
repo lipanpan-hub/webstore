@@ -11,7 +11,6 @@
 # @name register
 POST {{host}}/auth/register
 Content-Type: application/json
-
 {
   "username": "{{username}}",
   "password": "{{password}}"
@@ -23,7 +22,6 @@ Content-Type: application/json
 # @name login
 POST {{host}}/auth/login
 Content-Type: application/json
-
 {
   "username": "{{username}}",
   "password": "{{password}}"
